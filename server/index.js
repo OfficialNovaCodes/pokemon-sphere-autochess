@@ -12,6 +12,7 @@ const path = require("path");
 const vm = require("vm");
 const http = require("http");
 const { Server, Room } = require("colyseus");
+const db = require("./db");
 
 /* ---- load the shared sim (data.js + engine.js) into this process ---- */
 const shared = ["data.js", "engine.js"]
@@ -79,9 +80,14 @@ class AutoChessRoom extends Room {
   }
 
   /* ---------------- lifecycle ---------------- */
-  onJoin(client, options) {
+  async onJoin(client, options) {
     const name = (options && options.name ? String(options.name) : "Trainer").slice(0, 16);
-    const rating = Math.max(100, Math.min(3000, parseInt(options && options.rating) || 1000));
+    // DB is the authority on ratings; the client's copy is just a hint
+    let rating = Math.max(100, Math.min(3000, parseInt(options && options.rating) || 1000));
+    try {
+      const dbRating = await db.getRating(name);
+      if (dbRating != null) rating = dbRating;
+    } catch (e) { /* db unavailable — keep hint */ }
     this.players.set(client.sessionId, {
       id: client.sessionId, client, name, rating, ratingDelta: 0,
       gold: S.ECON.startGold, hp: S.ECON.startHP, streak: 0,
@@ -119,6 +125,7 @@ class AutoChessRoom extends Room {
     for (const [p, d] of deltas) {
       p.ratingDelta = Math.round(d);
       p.rating = Math.max(100, p.rating + p.ratingDelta);
+      db.saveResult(p.name, p.rating, p.placement === 1).catch(() => {});
     }
   }
 
@@ -509,10 +516,34 @@ app.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
+app.use(express.json());
 app.use(express.static(path.join(__dirname, ".."), { extensions: ["html"] }));
+
+/* ---------------- leaderboard API ---------------- */
+const utcDay = () => new Date().toISOString().slice(0, 10);
+app.get("/api/leaderboard", async (req, res) => {
+  try { res.json(await db.topPlayers(20)); }
+  catch (e) { res.status(500).json({ error: "db" }); }
+});
+app.get("/api/daily", async (req, res) => {
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(req.query.day || "") ? req.query.day : utcDay();
+  try { res.json({ day, scores: await db.topDaily(day, 20) }); }
+  catch (e) { res.status(500).json({ error: "db" }); }
+});
+app.post("/api/daily", async (req, res) => {
+  const name = String(req.body.name || "").slice(0, 16).trim();
+  const score = req.body.score | 0;
+  if (!name || score < 0 || score > 30000) return res.status(400).json({ error: "bad input" });
+  try {
+    await db.submitDaily(utcDay(), name, score);
+    res.json({ ok: true, day: utcDay() });
+  } catch (e) { res.status(500).json({ error: "db" }); }
+});
+
 const server = http.createServer(app);
 const gameServer = new Server({ server });
 gameServer.define("autochess", AutoChessRoom);
+db.init().catch(e => console.error("[db] init failed:", e.message));
 gameServer.listen(port).then(() => {
   console.log(`[autochess] game + static server listening on :${port}`);
 });

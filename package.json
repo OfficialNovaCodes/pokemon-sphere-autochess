@@ -13,6 +13,7 @@
   "dependencies": {
     "colyseus": "^0.15.17",
     "colyseus.js": "^0.16.22",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "pg": "^8.23.0"
   }
 }

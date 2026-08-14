@@ -578,6 +578,79 @@ const ui = {
     setTimeout(() => img.remove(), 520);
   },
 
+  /* API base: same origin when node-served/deployed, :2567 for python dev */
+  apiBase() {
+    return location.port === "8787" ? `http://${location.hostname}:2567` : "";
+  },
+
+  playerName() {
+    let n = localStorage.getItem("psac-name");
+    if (!n) {
+      n = "Trainer" + (100 + Math.floor(Math.random() * 900));
+      localStorage.setItem("psac-name", n);
+    }
+    return n;
+  },
+
+  /* leaderboards overlay: daily scores + all-time Elo */
+  async showBoard() {
+    let ov = this.el("board-overlay");
+    if (!ov) {
+      ov = document.createElement("div");
+      ov.id = "board-overlay";
+      ov.className = "overlay";
+      ov.innerHTML = `
+        <div class="modal"><div class="modal-face">
+          <div class="banner win">Leaderboards</div>
+          <div class="board-tabs">
+            <button id="tab-daily" class="tab-btn active">TODAY'S DAILY</button>
+            <button id="tab-elo" class="tab-btn">TOP TRAINERS</button>
+          </div>
+          <div id="board-body" class="board-body"><span class="muted">loading...</span></div>
+          <button id="board-close">CLOSE</button>
+        </div></div>`;
+      document.body.appendChild(ov);
+      ov.querySelector("#board-close").onclick = () => { SND.play("click"); ov.style.display = "none"; };
+      ov.querySelector("#tab-daily").onclick = () => this.loadBoard("daily");
+      ov.querySelector("#tab-elo").onclick = () => this.loadBoard("elo");
+    }
+    ov.style.display = "flex";
+    this.loadBoard("daily");
+  },
+
+  async loadBoard(tab) {
+    const body = this.el("board-body");
+    this.el("tab-daily").classList.toggle("active", tab === "daily");
+    this.el("tab-elo").classList.toggle("active", tab === "elo");
+    body.innerHTML = `<span class="muted">loading...</span>`;
+    try {
+      const me = this.playerName();
+      if (tab === "daily") {
+        const r = await (await fetch(this.apiBase() + "/api/daily")).json();
+        body.innerHTML = r.scores.length
+          ? r.scores.map((s, i) => `
+              <div class="report-row${s.name === me ? " top" : ""}">
+                <span class="report-rank">${i + 1}</span>
+                <span class="report-name">${s.name}</span>
+                <span class="report-stats">${s.score}</span>
+              </div>`).join("")
+          : `<span class="muted">no scores yet today — play the daily and claim the top spot!</span>`;
+      } else {
+        const rows = await (await fetch(this.apiBase() + "/api/leaderboard")).json();
+        body.innerHTML = rows.length
+          ? rows.map((p, i) => `
+              <div class="report-row${p.name === me ? " top" : ""}">
+                <span class="report-rank">${i + 1}</span>
+                <span class="report-name">${p.name}</span>
+                <span class="report-stats">${p.rating} · ${p.wins}W/${p.games}G</span>
+              </div>`).join("")
+          : `<span class="muted">no ranked games yet — play PVP!</span>`;
+      }
+    } catch (e) {
+      body.innerHTML = `<span class="muted">leaderboard unavailable (server offline?)</span>`;
+    }
+  },
+
   /* first-run "how to play" overlay (also behind the ? button) */
   showHelp(force) {
     if (!force && localStorage.getItem("psac-help-seen")) return;
@@ -938,6 +1011,14 @@ const ui = {
           const best = Math.max(g.dailyScore, parseInt(localStorage.getItem(dayKey)) || 0);
           localStorage.setItem(dayKey, String(best));
           html += `<div class="rating-line">DAILY SCORE: ${g.dailyScore}${best > g.dailyScore ? ` · best today ${best}` : ""}</div>`;
+          if (!g.dailySubmitted) {
+            g.dailySubmitted = true;
+            fetch(this.apiBase() + "/api/daily", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: this.playerName(), score: g.dailyScore }),
+            }).catch(() => {});
+          }
         }
         html += `<div class="report-record">${g.totals.wins}W — ${g.totals.losses}L · ${g.totals.goldEarned} gold earned · reached stage ${g.round}</div>`;
         if (entries.length) {
@@ -1086,6 +1167,8 @@ window.addEventListener("DOMContentLoaded", () => {
   syncMute();
   const helpBtn = document.getElementById("help-btn");
   if (helpBtn) helpBtn.onclick = () => { SND.play("click"); ui.showHelp(true); };
+  const boardBtn = document.getElementById("board-btn");
+  if (boardBtn) boardBtn.onclick = () => { SND.play("click"); ui.showBoard(); };
   ui.showHelp(false);
 
   const copyBtn = (id, getText) => {

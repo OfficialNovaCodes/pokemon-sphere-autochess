@@ -690,6 +690,20 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .help-row img { width: 34px; height: 34px; image-rendering: pixelated; flex-shrink: 0; }
 .help-row b { color: var(--blue-deep); }
 
+/* ---------------- leaderboards ---------------- */
+.board-tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
+.tab-btn {
+  font-size: 12.5px; padding: 6px 14px;
+  background: #fff; border-color: var(--teal-line); color: var(--blue-deep);
+  box-shadow: 0 3px 0 rgba(0, 40, 35, 0.35);
+}
+.tab-btn.active {
+  background: linear-gradient(#8fdcf5, var(--blue) 60%, var(--blue-deep));
+  color: #fff; border-color: #084e83; text-shadow: 0 1px 0 rgba(0,40,80,.4);
+}
+.board-body { min-height: 180px; max-height: 320px; overflow-y: auto; margin-bottom: 14px; }
+.board-body .report-row { min-width: 280px; }
+
 /* ---------------- replay viewer ---------------- */
 .replay-mode .panels { display: none; }
 .replay-mode #start-battle { display: none; }

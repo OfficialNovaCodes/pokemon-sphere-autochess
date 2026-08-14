@@ -364,6 +364,7 @@
       const cs = document.getElementById("conn-status");
       const name = nameInput.value.trim() || "Trainer";
       mp.myName = name;
+      localStorage.setItem("psac-name", name);
       try {
         client = new Colyseus.Client(wsUrl);
         const rating = parseInt(localStorage.getItem("psac-rating")) || 1000;
@@ -401,6 +402,8 @@
     syncMute();
     const helpBtn = document.getElementById("help-btn");
     if (helpBtn) helpBtn.onclick = () => { SND.play("click"); ui.showHelp(true); };
+    const boardBtn = document.getElementById("board-btn");
+    if (boardBtn) boardBtn.onclick = () => { SND.play("click"); ui.showBoard(); };
     const crBtn = document.getElementById("copy-replay");
     if (crBtn) crBtn.onclick = async () => {
       try {

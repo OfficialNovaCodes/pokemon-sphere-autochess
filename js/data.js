@@ -199,6 +199,33 @@ function craftFor(a, b) {
 const BASIC_ITEMS = Object.keys(ITEMS).filter(k => !ITEMS[k].crafted);
 
 /* --------------------------------------------------------------------------
+ * Projectile artwork — ported from the video engine's iconography
+ * (flames w/ flicker cores, droplets w/ shine, spark orbs, wisp trails...)
+ * ------------------------------------------------------------------------ */
+const ART_BY_MOVE = {
+  "Ember": "fire", "Flamethrower": "fire",
+  "Water Gun": "water", "Hydro Pump": "water",
+  "Thunderbolt": "zap", "Zap Cannon": "zap",
+  "Ice Beam": "hail",
+  "Aura Sphere": "aura",
+  "Swift": "star",
+  "Bonemerang": "bone",
+  "Shadow Ball": "wisp",
+  "Psychic": "psy", "Psystrike": "psy",
+  "Hyper Beam": "dragon",
+};
+const ART_BY_TYPE = {
+  fire: "fire", water: "water", electric: "zap", ice: "hail",
+  fighting: "aura", ghost: "wisp", dark: "wisp", poison: "wisp",
+  psychic: "psy", fairy: "psy", dragon: "dragon",
+  rock: "rock", ground: "rock", steel: "star", normal: "star",
+  bug: "star", grass: "leaf",
+};
+function projArtFor(moveName, type) {
+  return ART_BY_MOVE[moveName] || ART_BY_TYPE[type] || "star";
+}
+
+/* --------------------------------------------------------------------------
  * Type synergies — 2/4 of a type on your battle team buff the whole team.
  * Duplicates count (pre-combine trios ramp you into the synergy).
  * Mods share the item-mod vocabulary + a few sim-specific extras.

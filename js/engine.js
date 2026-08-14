@@ -241,7 +241,8 @@ class Battle {
             x: f.x, y: f.y, vx: Math.cos(ang) * m.pspeed, vy: Math.sin(ang) * m.pspeed,
             dmg: m.dmg * (f.star > 1 ? STAR_DMG_MUL : 1) * f.buffDmg * f.moveDmgMul,
             src: f, homing: !!m.homing, slowMul: m.slowMul, slowDur: m.slowDur,
-            color: TYPE_COLORS[f.type], t: 2.2, r: 8,
+            color: TYPE_COLORS[f.type], t: 2.2, r: 10,
+            art: projArtFor(f.moveName, f.type),
           });
         }
         if (m.recharge) f.rechargeT = m.recharge;
@@ -883,13 +884,10 @@ class BattleRenderer {
       this.bubbleText(String(Math.max(0, Math.round(f.hp))), f.x, f.y + f.r + 19, 15, "#1fa7e0");
     }
 
-    // projectiles — candy orbs with white outline
+    // projectiles — per-move iconography ported from the video engine
+    const vt = battle.t;
     for (const p of battle.projectiles) {
-      ctx.fillStyle = p.color;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2.5; ctx.stroke();
-      ctx.fillStyle = "rgba(255,255,255,0.55)";
-      ctx.beginPath(); ctx.arc(p.x - p.r * 0.3, p.y - p.r * 0.3, p.r * 0.32, 0, Math.PI * 2); ctx.fill();
+      this.drawProjectile(p, vt);
     }
 
     // popups — trozei bubble text (blue dmg, orange super, pink KO)
@@ -970,6 +968,149 @@ class BattleRenderer {
     }
 
     ctx.restore();  // shake transform
+  }
+
+  /* projectile artwork — faithful port of pokemon_spheres.py iconography */
+  drawProjectile(p, vt) {
+    const ctx = this.ctx;
+    const r = p.r;
+    const dv = Math.hypot(p.vx, p.vy) || 1;
+    const ux = p.vx / dv, uy = p.vy / dv;
+    const poly = (pts, fill) => {
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      pts.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y));
+      ctx.closePath(); ctx.fill();
+    };
+    const circle = (x, y, rad, fill, strokeW, strokeC) => {
+      ctx.beginPath(); ctx.arc(x, y, Math.max(1, rad), 0, Math.PI * 2);
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      if (strokeW) { ctx.lineWidth = strokeW; ctx.strokeStyle = strokeC; ctx.stroke(); }
+    };
+    switch (p.art) {
+      case "fire": {   // flickering teardrop with yellow core
+        const flick = 1 + 0.3 * Math.sin(vt * 22 + p.x * 0.013);
+        poly([[p.x - ux * r * 2.2 * flick, p.y - uy * r * 2.2 * flick],
+              [p.x - uy * r * 0.95, p.y + ux * r * 0.95],
+              [p.x + uy * r * 0.95, p.y - ux * r * 0.95]], "#f48c30");
+        circle(p.x, p.y, r, "#f48c30");
+        poly([[p.x - ux * r * 1.25 * flick, p.y - uy * r * 1.25 * flick],
+              [p.x - uy * r * 0.5, p.y + ux * r * 0.5],
+              [p.x + uy * r * 0.5, p.y - ux * r * 0.5]], "#fcd660");
+        circle(p.x, p.y, r * 0.52, "#fcd660");
+        break;
+      }
+      case "water": {  // pointed droplet with shine
+        poly([[p.x - ux * r * 1.8, p.y - uy * r * 1.8],
+              [p.x - uy * r * 0.85, p.y + ux * r * 0.85],
+              [p.x + uy * r * 0.85, p.y - ux * r * 0.85]], "#6890f0");
+        circle(p.x, p.y, r, "#6890f0", 3, "#3858aa");
+        circle(p.x - r * 0.32, p.y - r * 0.32, r * 0.3, "#d2e8ff");
+        break;
+      }
+      case "zap": {    // spark-spiked orb
+        const aa = vt * 15;
+        ctx.strokeStyle = "#fff08c"; ctx.lineWidth = 3.5; ctx.lineCap = "round";
+        for (let k = 0; k < 4; k++) {
+          const a = aa + k * Math.PI / 2;
+          ctx.beginPath(); ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + r * 1.75 * Math.cos(a), p.y + r * 1.75 * Math.sin(a));
+          ctx.stroke();
+        }
+        circle(p.x, p.y, r, "#f8d030", 2.5, "#b68812");
+        circle(p.x, p.y, r * 0.45, "#ffffff");
+        break;
+      }
+      case "hail": {   // spinning 6-point ice shard
+        const aa = vt * 4 + p.y * 0.005;
+        ctx.beginPath();
+        for (let k = 0; k < 6; k++) {
+          const a = aa + k * Math.PI / 3;
+          const rr = k % 2 === 0 ? r * 1.3 : r * 0.78;
+          const x = p.x + rr * Math.cos(a), y = p.y + rr * Math.sin(a);
+          k === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = "#def0f8"; ctx.fill();
+        ctx.lineWidth = 2.5; ctx.strokeStyle = "#96c8dc"; ctx.stroke();
+        break;
+      }
+      case "aura": {   // blue sphere with orbiting beads
+        circle(p.x, p.y, r, "#6496e6");
+        const aa = vt * 9;
+        for (let k = 0; k < 3; k++) {
+          const a = aa + k * 2.1;
+          circle(p.x + r * 0.55 * Math.cos(a), p.y + r * 0.55 * Math.sin(a), 3.5, "#bedcff");
+        }
+        circle(p.x, p.y, r, null, 3, "#bedcff");
+        break;
+      }
+      case "dragon": { // violet wisp with green core
+        poly([[p.x - ux * r * 2.3, p.y - uy * r * 2.3],
+              [p.x - uy * r * 0.8, p.y + ux * r * 0.8],
+              [p.x + uy * r * 0.8, p.y - ux * r * 0.8]], "#6e50c8");
+        circle(p.x, p.y, r, "#966ef0");
+        circle(p.x, p.y, r * 0.5, "#78f0a0");
+        break;
+      }
+      case "wisp": {   // wobbling shadow trail
+        for (let k = 1; k < 4; k++) {
+          const off = k * r * 0.85;
+          const wob = Math.sin(vt * 10 + k * 2) * r * 0.35;
+          circle(p.x - ux * off - uy * wob, p.y - uy * off + ux * wob,
+                 r * (1 - k * 0.26), "#462e68");
+        }
+        circle(p.x, p.y, r, "#5a3c82", 3, "#aa82dc");
+        break;
+      }
+      case "psy": {    // pink orb, white ring
+        circle(p.x, p.y, r, "#f882a8", 2.5, "#ffffff");
+        break;
+      }
+      case "bone": {   // spinning bonemerang
+        const a = vt * 12;
+        const ca = Math.cos(a), sa = Math.sin(a);
+        const L = r * 1.3;
+        ctx.strokeStyle = "#eee6d2"; ctx.lineWidth = 5; ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(p.x - ca * L, p.y - sa * L);
+        ctx.lineTo(p.x + ca * L, p.y + sa * L);
+        ctx.stroke();
+        circle(p.x + ca * L, p.y + sa * L, 5, "#eee6d2");
+        circle(p.x - ca * L, p.y - sa * L, 5, "#eee6d2");
+        break;
+      }
+      case "rock": {   // tumbling rock
+        circle(p.x, p.y, r, "#80808a", 3, "#54545e");
+        break;
+      }
+      case "leaf": {   // spinning leaf
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(vt * 6 + p.x * 0.01);
+        ctx.fillStyle = "#78c850";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, r * 1.3, r * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#4a8a30"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-r * 1.3, 0); ctx.lineTo(r * 1.3, 0); ctx.stroke();
+        ctx.restore();
+        break;
+      }
+      default: {       // "star" — spinning 10-point (Swift)
+        const a0 = vt * 8;
+        ctx.beginPath();
+        for (let k = 0; k < 10; k++) {
+          const rr = k % 2 === 0 ? r * 1.25 : r * 0.55;
+          const a = a0 + k * Math.PI / 5;
+          const x = p.x + rr * Math.cos(a), y = p.y + rr * Math.sin(a);
+          k === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = "#fadc5a"; ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = "#c8a020"; ctx.stroke();
+      }
+    }
   }
 
   /* small gold plaque (trozei "Remaining"-style) */
