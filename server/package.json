@@ -1,0 +1,14 @@
+{
+  "name": "pokemon-autochess-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Colyseus multiplayer server for Pokemon Sphere AutoChess",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "colyseus": "^0.15.17",
+    "colyseus.js": "^0.16.22"
+  }
+}

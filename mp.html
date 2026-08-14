@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pokémon Sphere AutoChess — Multiplayer</title>
+<link rel="icon" href="sprites/items/BALL.png">
+<link rel="stylesheet" href="css/style.css">
+<script>window.MP_MODE = true;</script>
+</head>
+<body>
+  <header>
+    <h1><img src="sprites/items/BALL.png" alt="" class="logo-ball"> Pokémon <span class="accent">Sphere AutoChess</span> <span class="mp-tag">PVP</span></h1>
+    <div class="pills">
+      <span class="pill" id="round" data-testid="round">Lobby</span>
+      <span class="pill stat" data-testid="hp"><img src="sprites/ui/HP.png" alt="HP"><b id="hp-val">100</b></span>
+      <span class="pill stat" data-testid="gold"><img src="sprites/items/COIN.png" alt="Gold"><b id="gold-val">12</b></span>
+      <span class="pill" id="streak" data-testid="streak">—</span>
+      <span class="pill phase" id="phase-label" data-testid="phase">LOBBY</span>
+      <button class="pill mute" id="mute-btn" data-testid="mute" title="Toggle sound">♪</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="mp-roster" class="mp-roster"></div>
+
+    <div class="arena-wrap">
+      <div id="toasts"></div>
+      <canvas id="arena" width="920" height="540"></canvas>
+      <div class="arena-bar">
+        <button id="start-battle" data-testid="start-battle">READY UP</button>
+        <button id="speed-btn" data-testid="speed-btn">Speed: <span id="speed-label">1x</span></button>
+      </div>
+    </div>
+
+    <div class="panels">
+      <section class="panel shop-panel">
+        <div class="panel-head">
+          <h2>Shop</h2>
+          <div class="reroll-bar">
+            <span class="reroll-hint muted"></span>
+            <button id="reroll" data-testid="reroll">
+              Reroll <img src="sprites/items/COIN.png" alt="" class="coin-s">2
+            </button>
+          </div>
+        </div>
+        <div id="shop-slots" class="shop-slots"></div>
+      </section>
+
+      <section class="panel team-panel">
+        <div class="panel-head"><h2 id="team-cap">Team</h2></div>
+        <div id="synergy-row" class="synergy-row"></div>
+        <div id="team-list" class="team-list"></div>
+        <div class="inv-head">Held Items <span class="muted" id="item-hint" style="display:none">— click a glowing Pokémon to equip</span></div>
+        <div id="item-inv" class="item-inv"></div>
+      </section>
+
+      <section class="panel inspect-panel">
+        <div class="panel-head"><h2>Pokédex</h2></div>
+        <div id="inspect-body" class="inspect-body" data-testid="inspect"></div>
+      </section>
+    </div>
+  </main>
+
+  <div id="result-overlay" class="overlay" style="display:none">
+    <div class="modal">
+      <div class="modal-face">
+        <div id="result-banner" class="banner" data-testid="result-banner"></div>
+        <div id="result-detail" class="result-detail" data-testid="result-detail"></div>
+        <button id="continue" data-testid="continue" style="display:none">CONTINUE</button>
+        <button id="new-game" data-testid="new-game" style="display:none">PLAY AGAIN</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="item-overlay" class="overlay" style="display:none">
+    <div class="modal">
+      <div class="modal-face">
+        <div class="banner win">Choose an item!</div>
+        <div id="item-choices" class="item-choices"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="lobby-overlay" class="overlay">
+    <div class="modal">
+      <div class="modal-face">
+        <div class="banner win">PVP LOBBY</div>
+        <div id="lobby-join">
+          <input id="name-input" data-testid="name-input" type="text" maxlength="16" placeholder="Trainer name" value="">
+          <button id="join-btn" data-testid="join-btn">JOIN</button>
+        </div>
+        <div id="lobby-wait" style="display:none">
+          <div id="lobby-roster" class="lobby-roster"></div>
+          <div class="muted" id="lobby-status">waiting for trainers...</div>
+          <button id="lobby-start" data-testid="lobby-start" disabled>START MATCH</button>
+        </div>
+        <div class="muted small" id="conn-status">connecting to server...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/vendor/colyseus.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/mp.js"></script>
+</body>
+</html>

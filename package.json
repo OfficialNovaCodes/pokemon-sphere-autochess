@@ -1,0 +1,18 @@
+{
+  "name": "pokemon-sphere-autochess",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pokemon Sphere AutoChess — auto-chess on a deterministic sphere-battle sim (Colyseus multiplayer + static client)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "colyseus": "^0.15.17",
+    "colyseus.js": "^0.16.22",
+    "express": "^4.19.2"
+  }
+}
