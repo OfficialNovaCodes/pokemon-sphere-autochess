@@ -62,6 +62,10 @@
       return { base: ECON.baseIncome, interest, total: ECON.baseIncome + interest };
     },
     scoutReport() { return null; },  // pairings are hidden until battle (TFT-style)
+    themeKey() {
+      const keys = ["meadow", "beach", "snow", "cave", "desert"];
+      return keys[Math.max(0, this.round - 1) % keys.length];
+    },
 
     /* ---- actions -> server messages ---- */
     buy(slot) { if (room && this.phase === "plan") { room.send("buy", { slot }); SND.play("buy"); } return true; },
@@ -376,6 +380,8 @@
     };
     muteBtn.onclick = () => { SND.toggle(); if (!SND.muted) SND.play("click"); syncMute(); };
     syncMute();
+    const helpBtn = document.getElementById("help-btn");
+    if (helpBtn) helpBtn.onclick = () => { SND.play("click"); ui.showHelp(true); };
 
     // hide lobby overlay once the game starts
     const lobbyWatcher = setInterval(() => {

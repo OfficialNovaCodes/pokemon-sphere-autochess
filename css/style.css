@@ -18,6 +18,9 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* faster taps on touch, no double-tap zoom on controls */
+button, .shop-card, .unit-row, .item-chip, .item-card, canvas { touch-action: manipulation; }
+
 :root {
   --teal: #12a192;
   --teal-deep: #0b7a6e;
@@ -666,6 +669,35 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   text-shadow: -2px 0 0 #fff, 2px 0 0 #fff, 0 -2px 0 #fff, 0 2px 0 #fff,
     0 4px 0 rgba(0, 40, 60, 0.2);
   margin-bottom: 6px; letter-spacing: .5px;
+}
+
+/* ---------------- buy fly-to-bench ---------------- */
+.fly-sprite {
+  position: fixed; width: 48px; height: 48px; z-index: 80;
+  image-rendering: pixelated; pointer-events: none;
+  transition: transform .48s cubic-bezier(.5, -0.2, .6, 1), opacity .48s;
+  filter: drop-shadow(0 3px 0 rgba(0, 40, 35, 0.35));
+}
+
+/* ---------------- how-to-play ---------------- */
+.help-rows { text-align: left; margin-bottom: 16px; }
+.help-row {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--mint); border: 2px solid var(--teal);
+  border-radius: 12px; padding: 8px 12px; margin: 7px 0;
+  font-size: 13px; color: var(--teal-line); line-height: 1.4;
+}
+.help-row img { width: 34px; height: 34px; image-rendering: pixelated; flex-shrink: 0; }
+.help-row b { color: var(--blue-deep); }
+
+/* ---------------- small screens ---------------- */
+@media (max-width: 700px) {
+  header h1 { font-size: 19px; }
+  .pill { font-size: 12px; padding: 3px 9px; }
+  .mini { padding: 7px 12px; }        /* fatter touch targets */
+  .shop-slots { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+  .sc-move { display: none; }
+  .arena-bar button { font-size: 14px; padding: 9px 16px; }
 }
 .roster-chip.me { border-color: var(--gold-line); box-shadow: 0 0 0 2px var(--gold), 0 3px 0 rgba(90,60,0,.4); }
 .roster-chip.out { opacity: .45; text-decoration: line-through; }

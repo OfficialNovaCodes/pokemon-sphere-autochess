@@ -301,6 +301,27 @@ const ENEMY_PLAN = [
   { budget: 32, maxTier: 5, units: 6, boss: true },  // r10 boss
 ];
 
+/* --------------------------------------------------------------------------
+ * Arena themes — pale palettes (sprites must stay readable), picked per
+ * stage from the trainer's types (video engine's 5-arena system).
+ * ------------------------------------------------------------------------ */
+const ARENA_THEMES = {
+  meadow: { field: "#ecfaf6", tint: [18, 161, 146] },
+  beach:  { field: "#fdf6e1", tint: [214, 158, 60] },
+  snow:   { field: "#eff6fd", tint: [110, 160, 220] },
+  cave:   { field: "#f2eef9", tint: [138, 112, 190] },
+  desert: { field: "#faf0dc", tint: [196, 124, 72] },
+};
+function themeForTypes(types) {
+  for (const t of types || []) {
+    if (["water"].includes(t)) return "beach";
+    if (["ice"].includes(t)) return "snow";
+    if (["ghost", "poison", "dark", "psychic"].includes(t)) return "cave";
+    if (["rock", "ground", "steel", "fire", "fighting"].includes(t)) return "desert";
+  }
+  return "meadow";
+}
+
 /* Battle sim tuning — mirrors pokemon_spheres.py constants */
 const SIM = {
   arenaW: 920, arenaH: 540,

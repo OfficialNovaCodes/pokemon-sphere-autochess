@@ -650,15 +650,18 @@ class BattleRenderer {
   }
 
   drawField() {
-    // Trozei play field: pale mint, faint teal grid, big swirl watermark,
-    // dashed teal center line (refs: Bulbanews Trozei screenshots)
+    // Trozei play field: pale ground, faint tinted grid, big swirl watermark,
+    // dashed center line. Palette comes from the current arena theme.
     const ctx = this.ctx, W = SIM.arenaW, H = SIM.arenaH;
+    const th = this.theme || ARENA_THEMES.meadow;
+    const [tr, tg, tb] = th.tint;
+    const tint = (a) => `rgba(${tr},${tg},${tb},${a})`;
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = "#ecfaf6";
+    ctx.fillStyle = th.field;
     ctx.fillRect(0, 0, W, H);
 
     // swirl watermark bottom-left (concentric spiral arcs)
-    ctx.strokeStyle = "rgba(18,161,146,0.10)";
+    ctx.strokeStyle = tint(0.10);
     ctx.lineCap = "round";
     const sx = 90, sy = H - 70;
     [[34, 24, 0.2, 1.75], [86, 30, 0.55, 2.1], [148, 36, 0.9, 2.45], [214, 42, 1.25, 2.8]].forEach(([r, w, a0, a1]) => {
@@ -667,7 +670,7 @@ class BattleRenderer {
     });
 
     // faint grid
-    ctx.strokeStyle = "rgba(18,161,146,0.14)";
+    ctx.strokeStyle = tint(0.14);
     ctx.lineWidth = 1.5;
     for (let x = 46; x < W; x += 46) {
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
@@ -677,7 +680,7 @@ class BattleRenderer {
     }
 
     // center line
-    ctx.strokeStyle = "rgba(18,161,146,0.45)";
+    ctx.strokeStyle = tint(0.45);
     ctx.lineWidth = 4;
     ctx.setLineDash([14, 12]);
     ctx.beginPath(); ctx.moveTo(W / 2, 14); ctx.lineTo(W / 2, H - 14); ctx.stroke();

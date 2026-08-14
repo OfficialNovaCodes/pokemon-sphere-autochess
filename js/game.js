@@ -335,6 +335,9 @@ class Game {
 
   setSpeed(n) { this.speedMul = Math.max(1, Math.min(16, n)); ui.render(); }
 
+  /* arena palette for this stage, from the trainer's types */
+  themeKey() { return themeForTypes(this.trainer().types); }
+
   /* projected income if the next battle ends now (for economy legibility) */
   incomePreview() {
     const interest = Math.min(ECON.interestCap, Math.floor(this.gold / ECON.interestPer));
@@ -400,6 +403,7 @@ const ui = {
   frame() {
     const g = window.game;
     if (g) {
+      this.renderer.theme = ARENA_THEMES[g.themeKey ? g.themeKey() : "meadow"] || ARENA_THEMES.meadow;
       if (g.phase === "battle" && g.battle) {
         // hitstop: freeze the sim a few frames on big moments (KOs, launches)
         if (this.hitstopFrames > 0) {
@@ -454,6 +458,53 @@ const ui = {
   },
 
   el(id) { return document.getElementById(id); },
+
+  /* flying sprite from the shop card to the team panel on buy */
+  flySprite(fromRect, url) {
+    const target = this.el("team-list");
+    if (!target) return;
+    const tr = target.getBoundingClientRect();
+    const img = document.createElement("img");
+    img.className = "fly-sprite";
+    img.src = url;
+    img.style.left = (fromRect.left + fromRect.width / 2 - 24) + "px";
+    img.style.top = (fromRect.top + fromRect.height / 2 - 24) + "px";
+    document.body.appendChild(img);
+    requestAnimationFrame(() => {
+      const dx = (tr.left + 40) - (fromRect.left + fromRect.width / 2);
+      const dy = (tr.top + 30) - (fromRect.top + fromRect.height / 2);
+      img.style.transform = `translate(${dx}px, ${dy}px) scale(0.6) rotate(20deg)`;
+      img.style.opacity = "0";
+    });
+    setTimeout(() => img.remove(), 520);
+  },
+
+  /* first-run "how to play" overlay (also behind the ? button) */
+  showHelp(force) {
+    if (!force && localStorage.getItem("psac-help-seen")) return;
+    localStorage.setItem("psac-help-seen", "1");
+    let ov = this.el("help-overlay");
+    if (!ov) {
+      ov = document.createElement("div");
+      ov.id = "help-overlay";
+      ov.className = "overlay";
+      ov.innerHTML = `
+        <div class="modal"><div class="modal-face">
+          <div class="banner win">How to play</div>
+          <div class="help-rows">
+            <div class="help-row"><img src="sprites/items/COIN.png" alt=""><span><b>Buy Pokémon</b> from the shop each stage. Gold left over earns interest.</span></div>
+            <div class="help-row"><img src="sprites/magikarp.png" alt=""><span><b>3 copies combine</b> into the evolution — even Magikarp becomes Gyarados.</span></div>
+            <div class="help-row"><img src="sprites/charmander.png" alt=""><span><b>2+ of a type</b> lights a team synergy. Scout the enemy's types and counter-pick.</span></div>
+            <div class="help-row"><img src="sprites/items/MUSCLE_BAND.png" alt=""><span><b>Held items</b> drop every other stage — drag one onto a Pokémon.</span></div>
+            <div class="help-row"><img src="sprites/items/BALL.png" alt=""><span><b>Battles play themselves</b> — your picks decide the chaos. Survive all 10 stages!</span></div>
+          </div>
+          <button id="help-close" data-testid="help-close">GOT IT!</button>
+        </div></div>`;
+      document.body.appendChild(ov);
+      ov.querySelector("#help-close").onclick = () => { SND.play("click"); ov.style.display = "none"; };
+    }
+    ov.style.display = "flex";
+  },
 
   /* brief celebration banner over the arena (evolutions, star-ups) */
   toast(text, spriteKey) {
@@ -596,7 +647,10 @@ const ui = {
           ${have > 0 ? `<div class="sc-owned${have === 2 ? " ready" : ""}">${have}/3</div>` : ""}
           ${counters ? `<div class="sc-counter">COUNTER!</div>` : ""}`;
         card.dataset.tip = have === 2 ? `Buy to combine ${u.name} ×3!` : `${u.move} — HP ${u.hp}`;
-        card.onclick = () => g.buy(i);
+        card.onclick = () => {
+          const rect = card.getBoundingClientRect();
+          if (g.buy(i)) this.flySprite(rect, `sprites/${key}.png`);
+        };
         card.onmouseenter = () => this.setInspect(key);
       } else {
         card.innerHTML = `<div class="sc-sold">SOLD</div>`;
@@ -844,6 +898,9 @@ window.addEventListener("DOMContentLoaded", () => {
   };
   muteBtn.onclick = () => { SND.toggle(); if (!SND.muted) SND.play("click"); syncMute(); };
   syncMute();
+  const helpBtn = document.getElementById("help-btn");
+  if (helpBtn) helpBtn.onclick = () => { SND.play("click"); ui.showHelp(true); };
+  ui.showHelp(false);
 
   ui.render();
 });
