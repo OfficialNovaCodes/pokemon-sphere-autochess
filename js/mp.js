@@ -74,6 +74,20 @@
     equip(item, unit) { if (room && this.phase === "plan") { room.send("equip", { item, unit }); SND.play("equip"); } return true; },
     reorder(from, to) { if (room && this.phase === "plan") room.send("reorder", { from, to }); return true; },
     moveFront(idx) { return this.reorder(idx, 0); },
+    setPos(idx, px, py) {
+      const u = this.units[idx];
+      if (this.phase !== "plan" || !u) return false;
+      u.px = Math.max(0.05, Math.min(0.46, px));
+      u.py = Math.max(0.08, Math.min(0.92, py));
+      return true;
+    },
+    commitPos(idx) {
+      const u = this.units[idx];
+      if (room && this.phase === "plan" && u && u.px != null) {
+        room.send("position", { idx, px: u.px, py: u.py });
+      }
+      return true;
+    },
     startBattle() {
       if (room && this.phase === "plan" && !this.you.ready) {
         room.send("ready");

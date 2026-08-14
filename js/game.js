@@ -28,6 +28,20 @@ class Game {
     this.career = {};          // {unitKey: {dmg, kos, mvps}} across the run
     this.totals = { wins: 0, losses: 0, goldEarned: 0 };
 
+    // run variety: trainer order shuffles every run (champion stays stage 10)
+    // and two random mid-run stages become ELITE (tougher, better rewards)
+    this.trainerOrder = [...Array(9).keys()];
+    for (let i = 8; i > 0; i--) {
+      const j = Math.floor(this.rng() * (i + 1));
+      [this.trainerOrder[i], this.trainerOrder[j]] = [this.trainerOrder[j], this.trainerOrder[i]];
+    }
+    this.trainerOrder.push(9);
+    this.eliteStages = [];
+    while (this.eliteStages.length < 2) {
+      const s = 3 + Math.floor(this.rng() * 7);
+      if (!this.eliteStages.includes(s)) this.eliteStages.push(s);
+    }
+
     const params = new URLSearchParams(location.search);
     if (params.get("speed")) this.speedMul = Math.max(1, Math.min(16, parseInt(params.get("speed")) || 1));
 
@@ -175,13 +189,18 @@ class Game {
   }
 
   /* ---------------- enemies: themed by the stage's trainer ---------------- */
-  trainer() { return TRAINERS[Math.min(this.round - 1, TRAINERS.length - 1)]; }
+  trainer() {
+    const idx = this.trainerOrder ? this.trainerOrder[Math.min(this.round, 10) - 1] : this.round - 1;
+    return TRAINERS[Math.min(idx ?? 9, TRAINERS.length - 1)];
+  }
+
+  isElite() { return this.round < 10 && this.eliteStages && this.eliteStages.includes(this.round); }
 
   genEnemyTeam() {
     const plan = ENEMY_PLAN[Math.min(this.round - 1, ENEMY_PLAN.length - 1)];
     const trainer = this.trainer();
     const team = [];
-    let budget = plan.budget;
+    let budget = Math.round(plan.budget * (this.isElite() ? 1.3 : 1));
     if (plan.boss) {
       team.push({ key: "mewtwo", star: 1, item: "muscle_band" });
       budget -= 5;
@@ -209,8 +228,23 @@ class Game {
       budget -= cost;
     }
     if (!team.length) team.push({ key: "magikarp", star: 1, item: null });
+    // elites always bring at least one held item
+    if (this.isElite() && !team.some(u => u.item)) {
+      const keys = Object.keys(ITEMS);
+      team[0].item = keys[Math.floor(this.rng() * keys.length)];
+    }
     return team;
   }
+
+  /* drag-to-position: set a battle-team unit's formation spot (own half) */
+  setPos(idx, px, py) {
+    const u = this.units[idx];
+    if (this.phase !== "plan" || !u) return false;
+    u.px = Math.max(0.05, Math.min(0.46, px));
+    u.py = Math.max(0.08, Math.min(0.92, py));
+    return true;
+  }
+  commitPos() { return true; }  // MP override sends to the server
 
   fightingUnits() { return this.units.slice(0, ECON.teamCap(this.round)); }
 
@@ -254,6 +288,11 @@ class Game {
     const sBonus = ECON.streakBonus[sAbs];
     if (sBonus) { income += sBonus; lines.push(`Streak (${Math.abs(this.streak)}) +${sBonus}`); }
     if (won) { income += ECON.winBonus; lines.push(`Win bonus +${ECON.winBonus}`); }
+    if (won && this.isElite()) {
+      income += 3;
+      lines.push("ELITE bonus +3");
+      this.eliteReward = true;   // grants an extra item pick on continue
+    }
     this.gold += income;
 
     let dmgTaken = 0;
@@ -306,7 +345,9 @@ class Game {
 
   continueFromResult() {
     if (this.phase !== "result") return false;
-    if (ECON.itemRounds.includes(this.round)) {
+    const eliteBonus = this.eliteReward;
+    this.eliteReward = false;
+    if (ECON.itemRounds.includes(this.round) || eliteBonus) {
       const keys = Object.keys(ITEMS);
       const picks = [];
       while (picks.length < 3) {
@@ -397,7 +438,51 @@ const ui = {
         this.render();
       }
     });
+    this.initFormationDrag();
     requestAnimationFrame(() => this.frame());
+  },
+
+  /* drag your mons around the planning field to set the formation */
+  initFormationDrag() {
+    const cv = this.canvas;
+    const toField = (e) => {
+      const r = cv.getBoundingClientRect();
+      return {
+        x: (e.clientX - r.left) * (SIM.arenaW / r.width),
+        y: (e.clientY - r.top) * (SIM.arenaH / r.height),
+      };
+    };
+    cv.addEventListener("pointerdown", (e) => {
+      const g = window.game;
+      if (!g || g.phase !== "plan") return;
+      const p = toField(e);
+      const units = g.fightingUnits();
+      let best = -1, bd = 1e9;
+      units.forEach((u, i) => {
+        const sp = spawnPos(u, i, units.length, 0);
+        const d = Math.hypot(p.x - sp.x, p.y - sp.y);
+        if (d < Math.max(44, (UNITS[u.key].r || 26) + 14) && d < bd) { bd = d; best = i; }
+      });
+      if (best >= 0) {
+        this.dragIdx = best;
+        cv.setPointerCapture(e.pointerId);
+        cv.style.cursor = "grabbing";
+      }
+    });
+    cv.addEventListener("pointermove", (e) => {
+      const g = window.game;
+      if (this.dragIdx == null || !g || g.phase !== "plan") return;
+      const p = toField(e);
+      g.setPos(this.dragIdx, p.x / SIM.arenaW, p.y / SIM.arenaH);
+    });
+    const end = (e) => {
+      const g = window.game;
+      if (this.dragIdx != null && g) g.commitPos(this.dragIdx);
+      this.dragIdx = null;
+      cv.style.cursor = "";
+    };
+    cv.addEventListener("pointerup", end);
+    cv.addEventListener("pointercancel", end);
   },
 
   frame() {
@@ -437,7 +522,8 @@ const ui = {
                 sub: `vs ${g.trainer().name}`,
               };
           if (won && !g.spectatingMatch) this.renderer.startConfetti();
-          setTimeout(() => { if (g.phase === "battle-ending") g.resolveBattle(); }, 1400);
+          // hold scales down at high sim speeds so fast play stays snappy
+          setTimeout(() => { if (g.phase === "battle-ending") g.resolveBattle(); }, g.speedMul >= 4 ? 850 : 1400);
         }
       } else if (g.phase === "battle-ending" && g.battle) {
         this.renderer.draw(g.battle, this.endBanner);
@@ -448,6 +534,7 @@ const ui = {
         const tr = g.trainer();
         this.renderer.drawPreview(g.fightingUnits(), g.enemyTeam, {
           stage: g.round, trainer: tr.name, boss: !!tr.boss,
+          elite: !!(g.isElite && g.isElite()),
           synA: computeSynergies(g.fightingUnits()),
           synB: computeSynergies(g.enemyTeam),
           scout: g.scoutReport(),

@@ -58,6 +58,7 @@ class AutoChessRoom extends Room {
     this.onMessage("reroll", (c) => this.act(c, p => this.reroll(p)));
     this.onMessage("equip", (c, m) => this.act(c, p => this.equip(p, m.item, m.unit)));
     this.onMessage("reorder", (c, m) => this.act(c, p => this.reorder(p, m.from, m.to)));
+    this.onMessage("position", (c, m) => this.act(c, p => this.setPos(p, m.idx, m.px, m.py)));
     this.onMessage("ready", (c) => {
       const p = this.players.get(c.sessionId);
       if (p && this.phase === "plan" && !p.eliminated) {
@@ -242,6 +243,13 @@ class AutoChessRoom extends Room {
     p.units.splice(Math.max(0, Math.min(p.units.length, to)), 0, u);
   }
 
+  setPos(p, idx, px, py) {
+    const u = p.units[idx | 0];
+    if (!u || typeof px !== "number" || typeof py !== "number") return;
+    u.px = Math.max(0.05, Math.min(0.46, px));
+    u.py = Math.max(0.08, Math.min(0.92, py));
+  }
+
   tryCombine(p) {
     let changed = true;
     while (changed) {
@@ -278,7 +286,10 @@ class AutoChessRoom extends Room {
   }
 
   teamCap() { return S.ECON.teamCap(this.round); }
-  fighting(p) { return p.units.slice(0, this.teamCap()).map(u => ({ key: u.key, star: u.star, item: u.item })); }
+  fighting(p) {
+    return p.units.slice(0, this.teamCap())
+      .map(u => ({ key: u.key, star: u.star, item: u.item, px: u.px, py: u.py }));
+  }
 
   /* ---------------- round flow ---------------- */
   clearTimer() { if (this.phaseTimer) { this.phaseTimer.clear(); this.phaseTimer = null; } }
@@ -464,7 +475,7 @@ class AutoChessRoom extends Room {
         you: {
           name: p.name, gold: p.gold, hp: Math.max(0, p.hp), streak: p.streak,
           rating: p.rating, ratingDelta: p.ratingDelta,
-          units: p.units.map(u => ({ key: u.key, star: u.star, item: u.item, sellValue: u.sellValue })),
+          units: p.units.map(u => ({ key: u.key, star: u.star, item: u.item, sellValue: u.sellValue, px: u.px, py: u.py })),
           shop: p.shop, items: p.itemsInv,
           rerollCost: this.rerollCost(p),
           ready: p.ready, eliminated: p.eliminated,

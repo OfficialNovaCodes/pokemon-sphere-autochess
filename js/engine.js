@@ -14,6 +14,23 @@ function mulberry32(seed) {
   };
 }
 
+/* spawn position for a unit: custom (player-dragged px/py, mirrored for the
+ * away team) or the default column spread. Shared by the battle sim, the
+ * planning preview, and the drag hit-test so they always agree. */
+function spawnPos(u, i, n, team) {
+  const W = SIM.arenaW, H = SIM.arenaH;
+  if (u && u.px != null && u.py != null) {
+    const px = Math.max(0.05, Math.min(0.46, u.px));
+    const py = Math.max(0.08, Math.min(0.92, u.py));
+    return { x: team === 0 ? W * px : W * (1 - px), y: H * py, custom: true };
+  }
+  return {
+    x: W * (team === 0 ? 0.26 : 0.74) + (team === 0 ? -1 : 1) * (i % 2) * 46,
+    y: H * (0.16 + 0.76 * ((i + 1) / (n + 1))),   // clears the preview headers
+    custom: false,
+  };
+}
+
 class Fighter {
   constructor(unitKey, star, itemKey, team, rng, teamMods) {
     const u = UNITS[unitKey];
@@ -119,10 +136,12 @@ class Battle {
     const place = (units, team) => {
       units.forEach((u, i) => {
         const f = new Fighter(u.key, u.star, u.item, team, this.rng, mods[team]);
-        const col = team === 0 ? 0.26 : 0.74;
-        const n = units.length;
-        f.x = W * col + (this.rng() - 0.5) * 40;
-        f.y = H * ((i + 1) / (n + 1)) + (this.rng() - 0.5) * 30;
+        const p = spawnPos(u, i, units.length, team);
+        // rng consumed identically whether or not a custom position is set,
+        // so server sim and client replay stay in lockstep
+        const jx = (this.rng() - 0.5) * 40, jy = (this.rng() - 0.5) * 30;
+        f.x = p.custom ? p.x : p.x + jx;
+        f.y = p.custom ? p.y : p.y + jy;
         const ang = (team === 0 ? 0 : Math.PI) + (this.rng() - 0.5) * 0.9;
         const v = SIM.baseVel * f.effSpeed();
         f.vx = Math.cos(ang) * v;
@@ -990,12 +1009,20 @@ class BattleRenderer {
     this.drawField();
     meta = meta || {};
 
-    // stage / trainer banner
-    const title = meta.trainer ? `STAGE ${meta.stage} — ${meta.trainer}` : "GET READY!";
-    this.goldPlaque(W / 2 - 220, 12, 440, 42);
+    // stage / trainer banner (elite stages get the pink treatment)
+    const title = meta.trainer
+      ? `${meta.elite ? "ELITE " : ""}STAGE ${meta.stage} — ${meta.trainer}`
+      : "GET READY!";
+    this.goldPlaque(W / 2 - 230, 12, 460, 42);
     ctx.textBaseline = "middle";
-    this.bubbleText(title, W / 2, 35, 19, meta.boss ? "#d24d8e" : "#0d6fb8");
+    this.bubbleText(title, W / 2, 35, 19, (meta.boss || meta.elite) ? "#d24d8e" : "#0d6fb8");
     ctx.textBaseline = "alphabetic";
+    if (meta.elite) {
+      ctx.font = "700 11px Poppins, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#d24d8e";
+      ctx.fillText("tougher enemies — bonus item and gold if you win!", W / 2, 92);
+    }
 
     // scouting tip: dominant enemy type + counters (teaches the type chart)
     if (meta.scout) {
@@ -1021,19 +1048,25 @@ class BattleRenderer {
       ctx.textBaseline = "middle";
       this.bubbleText(team === 0 ? "YOUR TEAM" : "ENEMY TEAM", cx, 96, 16, team === 0 ? "#2e9e2a" : "#d24d8e");
       ctx.textBaseline = "alphabetic";
+      if (team === 0 && units.length) {
+        ctx.font = "700 10px Poppins, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "rgba(10,100,89,0.55)";
+        ctx.fillText("drag your Pokémon to set the formation", cx, 132);
+      }
       const syn = team === 0 ? (meta.synA || []) : (meta.synB || []);
       this.drawSynergyChips(syn, cx, 110);
 
       // mons standing on the field at their battle spawn spots, idle-bobbing
       const now = performance.now();
-      const fieldX = team === 0 ? W * 0.26 : W * 0.74;
       const n = units.length;
       units.forEach((u, i) => {
         const unit = UNITS[u.key];
         const r = Math.min(34, unit.r + (u.star > 1 ? 3 : 0));
-        const y0 = 150 + ((H - 190) * (i + 1)) / (n + 1);
+        const sp = spawnPos(u, i, n, team);
+        const y0 = sp.y;
         const bob = Math.sin(now / 320 + i * 1.7) * 4;
-        const x = fieldX + (team === 0 ? -1 : 1) * (i % 2) * 46;
+        const x = sp.x;
         const y = y0 + bob;
         // soft team shadow (stays put while the mon bobs)
         ctx.fillStyle = team === 0 ? "rgba(67,201,62,0.28)" : "rgba(245,113,176,0.30)";
