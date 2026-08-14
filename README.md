@@ -49,15 +49,31 @@ when 2+ players are in — so you can play PVP alone against a bot.
 - **Rematch** — at game over, PLAY AGAIN resets the room to the lobby with
   everyone's gold/HP/teams fresh; connected players stay seated.
 
-## Playing with friends (LAN / internet)
+## Play online (LIVE)
+
+**https://pokemon-sphere-autochess-648c8122b310.herokuapp.com/mp.html**
+
+Deployed on Heroku (app `pokemon-sphere-autochess`, Basic dyno). One Node
+process serves the static client AND the Colyseus websocket on the same
+`$PORT` (`server/index.js` + express). Deploy updates with:
+
+```
+git add -A && git commit -m "..." && git push heroku main
+```
+
+Add a practice opponent to the live server:
+`node server/bot.js Rival --start "--url=wss://pokemon-sphere-autochess-648c8122b310.herokuapp.com"`
+
+Singleplayer is also live at the root URL.
+
+## Playing on LAN (no internet needed)
 
 1. Host runs `play-mp.bat` (or `node server/index.js` + any static server).
 2. Friends open `http://<host-ip>:8787/mp.html?server=<host-ip>` —
    the `?server=` param points the game client at the host's Colyseus server
    (port 2567 assumed; pass `host:port` to override).
 3. Windows will prompt to allow node/python through the firewall — allow on
-   private networks. For internet play, port-forward 8787 + 2567 or deploy
-   `server/` to any Node host (Colyseus Cloud, Railway, a VPS).
+   private networks.
 
 ## The fun layer (TFT / Super Auto Pets DNA)
 
