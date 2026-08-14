@@ -656,6 +656,17 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   box-shadow: 0 3px 0 rgba(0, 40, 35, 0.4);
 }
 .roster-chip img { width: 16px; height: 16px; }
+.chip-elo {
+  background: var(--blue); color: #fff; font-size: 10.5px;
+  padding: 1px 8px; border-radius: 999px;
+  text-shadow: 0 1px 0 rgba(0, 40, 80, 0.4);
+}
+.rating-line {
+  font-family: var(--display); font-size: 18px; color: var(--blue);
+  text-shadow: -2px 0 0 #fff, 2px 0 0 #fff, 0 -2px 0 #fff, 0 2px 0 #fff,
+    0 4px 0 rgba(0, 40, 60, 0.2);
+  margin-bottom: 6px; letter-spacing: .5px;
+}
 .roster-chip.me { border-color: var(--gold-line); box-shadow: 0 0 0 2px var(--gold), 0 3px 0 rgba(90,60,0,.4); }
 .roster-chip.out { opacity: .45; text-decoration: line-through; }
 #lobby-join { display: flex; gap: 8px; justify-content: center; margin: 8px 0 12px; }

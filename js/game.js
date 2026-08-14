@@ -220,6 +220,7 @@ class Game {
     this.battle = null;
     this.enemyTeam = this.genEnemyTeam();
     this.rollShop();
+    SND.startMusic("plan");
     if (typeof ui !== "undefined") ui.render();
   }
 
@@ -400,19 +401,45 @@ const ui = {
     const g = window.game;
     if (g) {
       if (g.phase === "battle" && g.battle) {
-        for (let i = 0; i < g.speedMul && !g.battle.over; i++) {
-          g.battle.step(SIM.dt);
+        // hitstop: freeze the sim a few frames on big moments (KOs, launches)
+        if (this.hitstopFrames > 0) {
+          this.hitstopFrames--;
+        } else {
+          for (let i = 0; i < g.speedMul && !g.battle.over; i++) {
+            g.battle.step(SIM.dt);
+          }
         }
-        // drain battle sound events (SND throttles the spammy ones)
-        for (const ev of g.battle.events) SND.play(ev);
+        // drain battle events -> sounds + juice (SND throttles the spam)
+        for (const ev of g.battle.events) {
+          SND.play(ev);
+          if (ev === "ko") { this.hitstopFrames = Math.max(this.hitstopFrames, 11); this.renderer.shake(10); }
+          else if (ev === "minion-ko") this.renderer.shake(4);
+          else if (ev === "launch") { this.hitstopFrames = Math.max(this.hitstopFrames, 4); this.renderer.shake(6); }
+          else if (ev === "hazard-hit") this.renderer.shake(3);
+        }
         g.battle.events.length = 0;
         this.renderer.draw(g.battle);
         if (g.battle.over) {
           g.phase = "battle-ending";  // prevent double resolve
-          setTimeout(() => { if (g.phase === "battle-ending") g.resolveBattle(); }, 600 / g.speedMul);
+          // hold on the field: winner banner + confetti before the modal
+          const myTeam = g.youAre || 0;
+          const won = g.battle.winner === myTeam;
+          const draw = g.battle.winner === "draw";
+          this.endBanner = g.spectatingMatch
+            ? { text: "BATTLE OVER", color: "#1fa7e0" }
+            : {
+                text: draw ? "DRAW" : (won ? "VICTORY!" : "DEFEAT..."),
+                color: draw ? "#ffcc2e" : (won ? "#1fa7e0" : "#f571b0"),
+                sub: `vs ${g.trainer().name}`,
+              };
+          if (won && !g.spectatingMatch) this.renderer.startConfetti();
+          setTimeout(() => { if (g.phase === "battle-ending") g.resolveBattle(); }, 1400);
         }
       } else if (g.phase === "battle-ending" && g.battle) {
-        this.renderer.draw(g.battle);
+        this.renderer.draw(g.battle, this.endBanner);
+      } else if (["result", "victory", "gameover"].includes(g.phase) && g.battle) {
+        // keep the final frame (and confetti) alive behind the modal
+        this.renderer.draw(g.battle, this.endBanner);
       } else if (g.phase === "plan") {
         const tr = g.trainer();
         this.renderer.drawPreview(g.fightingUnits(), g.enemyTeam, {
@@ -747,6 +774,7 @@ const ui = {
           .sort((a, b) => b.dmg - a.dmg)
           .slice(0, 4);
         html += `<div class="report-head">RUN REPORT</div>`;
+        if (g.ratingLine) html += `<div class="rating-line">${g.ratingLine}</div>`;
         html += `<div class="report-record">${g.totals.wins}W — ${g.totals.losses}L · ${g.totals.goldEarned} gold earned · reached stage ${g.round}</div>`;
         if (entries.length) {
           html += entries.map((e, i) => `

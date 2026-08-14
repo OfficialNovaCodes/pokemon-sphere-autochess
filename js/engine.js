@@ -106,6 +106,7 @@ class Battle {
     this.projectiles = [];
     this.hazards = [];      // stealth rocks etc: {x,y,r,dmg,team,ttl,spin}
     this.events = [];       // sound/event stream drained by the UI each frame
+    this.corpses = [];      // KO'd mons fading out: {key,x,y,r,team,t}
     this.popups = [];
     this.flashes = [];      // move-name banners
     this.over = false;
@@ -174,7 +175,11 @@ class Battle {
       if (src.hp <= 0) this.tryKill(src, dst);
     }
     const col = mul > 1 ? "#ff8c1a" : (mul < 1 ? "#9aa0b0" : "#ffffff");
-    this.popup(dst.x, dst.y - dst.r - 16, String(Math.round(d)), col, d >= 10);
+    this.popups.push({
+      x: dst.x + (this.rng() - 0.5) * 18, y: dst.y - dst.r - 16,
+      text: String(Math.round(d)), color: col, big: d >= 10, t: 1.1,
+      miniBurst: mul > 1,   // super-effective sparkle
+    });
     this.tryKill(dst, src);
     return d;
   }
@@ -190,6 +195,7 @@ class Battle {
     f.alive = false;
     f.hp = 0;
     if (killer) killer.kos += 1;
+    this.corpses.push({ key: f.spriteKey || f.key, x: f.x, y: f.y, r: f.r, team: f.team, t: 0.5 });
     this.popups.push({ x: f.x, y: f.y, text: "KO!", color: "#ff3b30", big: true, t: 1.1, burst: true });
     this.emit(f.minion ? "minion-ko" : "ko");
     this.log.push(`${f.name} is KO'd!`);
@@ -547,6 +553,10 @@ class Battle {
     }
     this.hazards = this.hazards.filter(h => h.ttl > 0);
 
+    // corpses fade out
+    for (const c of this.corpses) c.t -= dt;
+    this.corpses = this.corpses.filter(c => c.t > 0);
+
     // popups/flashes
     for (const p of this.popups) { p.t -= dt; p.y -= 28 * dt; }
     this.popups = this.popups.filter(p => p.t > 0);
@@ -576,6 +586,28 @@ class BattleRenderer {
     this.ctx = canvas.getContext("2d");
     this.sprites = sprites;           // {unitKey: Image}
     this.itemSprites = itemSprites || {};  // {itemKey: Image}
+    this.shakeAmp = 0;                // screen shake (decays per frame)
+    this.confetti = [];               // celebration particles
+    this.lastFrame = 0;
+  }
+
+  shake(amp) { this.shakeAmp = Math.max(this.shakeAmp, amp); }
+
+  startConfetti() {
+    const colors = ["#ffcc2e", "#1fa7e0", "#f571b0", "#43c93e", "#ff9f1c"];
+    for (let i = 0; i < 90; i++) {
+      this.confetti.push({
+        x: Math.random() * SIM.arenaW,
+        y: -20 - Math.random() * 200,
+        vx: (Math.random() - 0.5) * 90,
+        vy: 140 + Math.random() * 160,
+        rot: Math.random() * Math.PI * 2,
+        vrot: (Math.random() - 0.5) * 9,
+        w: 7 + Math.random() * 7, h: 5 + Math.random() * 5,
+        color: colors[i % colors.length],
+        t: 2.6,
+      });
+    }
   }
 
   /* five-point star path */
@@ -668,8 +700,19 @@ class BattleRenderer {
     ctx.textAlign = "left";
   }
 
-  draw(battle) {
+  draw(battle, banner) {
     const ctx = this.ctx, W = SIM.arenaW, H = SIM.arenaH;
+    const now = performance.now();
+    const fdt = Math.min(0.05, (now - (this.lastFrame || now)) / 1000);
+    this.lastFrame = now;
+
+    // screen shake wraps the whole frame
+    ctx.save();
+    if (this.shakeAmp > 0.3) {
+      ctx.translate((Math.random() - 0.5) * this.shakeAmp, (Math.random() - 0.5) * this.shakeAmp);
+      this.shakeAmp *= 0.86;
+    } else this.shakeAmp = 0;
+
     this.drawField();
 
     // hazards (stealth rocks): tumbling gray polygons with team tint ring
@@ -705,6 +748,20 @@ class BattleRenderer {
         ctx.stroke();
         ctx.globalAlpha = 1;
       }
+    }
+
+    // KO'd mons: shrink, spin and fade instead of vanishing
+    for (const c of battle.corpses) {
+      const k = c.t / 0.5;
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate((1 - k) * 2.6);
+      ctx.globalAlpha = k * 0.9;
+      const img = this.sprites[c.key];
+      const s = c.r * 2 * (0.4 + 0.6 * k);
+      if (img && img.complete) ctx.drawImage(img, -s / 2, -s / 2, s, s);
+      ctx.restore();
+      ctx.globalAlpha = 1;
     }
 
     // fighters
@@ -757,6 +814,16 @@ class BattleRenderer {
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill();
       }
 
+      // charge-ready telegraph: pulsing gold ring = move is about to fire
+      if (f.charge >= f.move.cost - 0.001 && f.move.kind !== "flail") {
+        const pulse = 2 + Math.sin(now / 90) * 2;
+        ctx.strokeStyle = "#ffcc2e";
+        ctx.lineWidth = 3.5;
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.r + 7 + pulse, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
       // star badge (drawn gold star)
       if (f.star > 1) {
         this.starPath(f.x + f.r - 6, f.y - f.r + 4, 9);
@@ -806,6 +873,10 @@ class BattleRenderer {
         this.burstPath(p.x, p.y - 6, 44 * scale, 9);
         ctx.fillStyle = "#ffcc2e"; ctx.fill();
         ctx.strokeStyle = "#f571b0"; ctx.lineWidth = 4; ctx.stroke();
+      } else if (p.miniBurst) {
+        // small gold sparkle behind super-effective numbers
+        this.burstPath(p.x, p.y - 5, 20, 7);
+        ctx.fillStyle = "rgba(255,204,46,0.85)"; ctx.fill();
       }
       this.bubbleText(p.text, p.x, p.y, p.big ? 23 : 16, col);
       ctx.globalAlpha = 1;
@@ -825,6 +896,48 @@ class BattleRenderer {
     const sd = battle.t > SIM.suddenDeathT;
     const label = sd ? `SUDDEN DEATH ${battle.t.toFixed(0)}s` : `${battle.t.toFixed(0)}s`;
     this.bubbleText(label, W / 2, H - 18, 15, sd ? "#f571b0" : "#12a192");
+
+    // live team HP totals — who's winning, at a glance
+    const teamFrac = (team) => {
+      const fs = battle.fighters.filter(f => f.team === team && !f.minion);
+      if (!fs.length) return 0;
+      return fs.reduce((s, f) => s + (f.alive ? f.hp / f.maxhp : 0), 0) / fs.length;
+    };
+    const barW = 240, barY = 10;
+    const drawTeamBar = (frac, x, col, align) => {
+      ctx.fillStyle = "rgba(10,100,89,0.75)";
+      this.rr(x - 2, barY - 2, barW + 4, 14, 7); ctx.fill();
+      const w = Math.max(3, barW * frac);
+      ctx.fillStyle = col;
+      this.rr(align === "right" ? x + barW - w : x, barY, w, 10, 5); ctx.fill();
+    };
+    drawTeamBar(teamFrac(0), 14, "#43c93e", "left");
+    drawTeamBar(teamFrac(1), W - barW - 14, "#f571b0", "right");
+
+    // end-of-battle banner + confetti (during the battle-ending hold)
+    if (banner) {
+      ctx.fillStyle = "rgba(10, 60, 54, 0.35)";
+      ctx.fillRect(0, 0, W, H);
+      this.bubbleText(banner.text, W / 2, H / 2 - 10, 52, banner.color);
+      if (banner.sub) this.bubbleText(banner.sub, W / 2, H / 2 + 34, 20, "#ffffff");
+    }
+    if (this.confetti.length) {
+      for (const c of this.confetti) {
+        c.t -= fdt;
+        c.x += c.vx * fdt; c.y += c.vy * fdt; c.rot += c.vrot * fdt;
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.rotate(c.rot);
+        ctx.globalAlpha = Math.min(1, c.t);
+        ctx.fillStyle = c.color;
+        ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+      this.confetti = this.confetti.filter(c => c.t > 0 && c.y < H + 30);
+    }
+
+    ctx.restore();  // shake transform
   }
 
   /* small gold plaque (trozei "Remaining"-style) */
@@ -908,39 +1021,44 @@ class BattleRenderer {
       const syn = team === 0 ? (meta.synA || []) : (meta.synB || []);
       this.drawSynergyChips(syn, cx, 110);
 
+      // mons standing on the field at their battle spawn spots, idle-bobbing
+      const now = performance.now();
+      const fieldX = team === 0 ? W * 0.26 : W * 0.74;
+      const n = units.length;
       units.forEach((u, i) => {
         const unit = UNITS[u.key];
-        const y = 152 + i * 62, r = 24;
-        const img = this.sprites[u.key];
-        // cream name card w/ teal border
-        ctx.fillStyle = "#fff9e4";
-        this.rr(cx - 62, y - 24, 218, 48, 12); ctx.fill();
-        ctx.strokeStyle = "#12a192"; ctx.lineWidth = 2.5;
-        this.rr(cx - 62, y - 24, 218, 48, 12); ctx.stroke();
-        // sprite bare, soft team ellipse under it
+        const r = Math.min(34, unit.r + (u.star > 1 ? 3 : 0));
+        const y0 = 150 + ((H - 190) * (i + 1)) / (n + 1);
+        const bob = Math.sin(now / 320 + i * 1.7) * 4;
+        const x = fieldX + (team === 0 ? -1 : 1) * (i % 2) * 46;
+        const y = y0 + bob;
+        // soft team shadow (stays put while the mon bobs)
         ctx.fillStyle = team === 0 ? "rgba(67,201,62,0.28)" : "rgba(245,113,176,0.30)";
-        ctx.beginPath(); ctx.ellipse(cx - 98, y + r * 0.75, r * 0.95, r * 0.34, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(x, y0 + r * 0.85, r * 0.95, r * 0.32, 0, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = col; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(cx - 98, y, r + 3, 0, Math.PI * 2); ctx.stroke();
-        if (img && img.complete) ctx.drawImage(img, cx - 98 - r, y - r, r * 2, r * 2);
-        // texts
-        ctx.fillStyle = "#0a6459";
-        ctx.font = "700 14.5px 'Lilita One', Poppins, sans-serif";
-        ctx.textAlign = "left";
-        const star = u.star > 1 ? " ★" : "";
-        ctx.fillText(`${unit.name}${star}`, cx - 48, y - 3);
-        ctx.font = "700 11px Poppins, sans-serif";
-        ctx.fillStyle = "#4c9a8f";
-        ctx.fillText(`HP ${unit.hp} · ${unit.move}`, cx - 48, y + 15);
-        // held item sprite
-        if (u.item && this.itemSprites[u.item] && this.itemSprites[u.item].complete) {
-          ctx.drawImage(this.itemSprites[u.item], cx + 118, y - 12, 24, 24);
+        ctx.beginPath(); ctx.arc(x, y, r + 3, 0, Math.PI * 2); ctx.stroke();
+        const img = this.sprites[u.key];
+        if (img && img.complete) ctx.drawImage(img, x - r, y - r, r * 2, r * 2);
+        // star + item badges
+        if (u.star > 1) {
+          this.starPath(x + r - 5, y - r + 4, 9);
+          ctx.fillStyle = "#ffcc2e"; ctx.fill();
+          ctx.strokeStyle = "#8a6200"; ctx.lineWidth = 2; ctx.stroke();
         }
-        // type dot
-        ctx.fillStyle = TYPE_COLORS[unit.type];
-        ctx.beginPath(); ctx.arc(cx + 148, y, 7, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+        if (u.item && this.itemSprites[u.item] && this.itemSprites[u.item].complete) {
+          ctx.drawImage(this.itemSprites[u.item], x - r - 8, y - r - 4, 20, 20);
+        }
+        // name + hp under the mon
+        ctx.font = "700 13px 'Lilita One', Poppins, sans-serif";
         ctx.textAlign = "center";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 4;
+        ctx.strokeText(unit.name, x, y0 + r + 20);
+        ctx.fillStyle = "#0a6459";
+        ctx.fillText(unit.name, x, y0 + r + 20);
+        ctx.font = "700 10.5px Poppins, sans-serif";
+        ctx.fillStyle = "#4c9a8f";
+        ctx.fillText(`HP ${unit.hp}`, x, y0 + r + 33);
       });
       if (!units.length) {
         ctx.fillStyle = "#fff9e4";
@@ -950,7 +1068,7 @@ class BattleRenderer {
         ctx.fillStyle = "#4c9a8f";
         ctx.font = "700 14px Poppins, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("no units — buy from the shop!", cx, 177);
+        ctx.fillText(team === 0 ? "no units — buy from the shop!" : "scouting...", cx, 177);
       }
     };
     drawSide(playerUnits, 0);

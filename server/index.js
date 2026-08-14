@@ -80,20 +80,45 @@ class AutoChessRoom extends Room {
   /* ---------------- lifecycle ---------------- */
   onJoin(client, options) {
     const name = (options && options.name ? String(options.name) : "Trainer").slice(0, 16);
+    const rating = Math.max(100, Math.min(3000, parseInt(options && options.rating) || 1000));
     this.players.set(client.sessionId, {
-      id: client.sessionId, client, name,
+      id: client.sessionId, client, name, rating, ratingDelta: 0,
       gold: S.ECON.startGold, hp: S.ECON.startHP, streak: 0,
       units: [], itemsInv: [], shop: [], pity: 0,
-      ready: false, eliminated: false, connected: true,
+      ready: false, eliminated: false, connected: true, spectator: false,
       pendingItems: null, lastResult: null,
     });
     if (this.phase !== "lobby") {
-      // late joiner becomes spectator
+      // late joiner becomes spectator (no Elo stakes)
       this.players.get(client.sessionId).eliminated = true;
+      this.players.get(client.sessionId).spectator = true;
       this.players.get(client.sessionId).hp = 0;
     }
     this.broadcastLobby();
     this.pushViews();
+  }
+
+  /* pairwise Elo by final placement (zero-sum, K scaled by lobby size) */
+  applyElo() {
+    const ranked = [...this.players.values()]
+      .filter(p => !p.spectator)
+      .sort((a, b) => (a.placement || 99) - (b.placement || 99));
+    if (ranked.length < 2) return;
+    const K = 32 / (ranked.length - 1);
+    const deltas = new Map(ranked.map(p => [p, 0]));
+    for (let i = 0; i < ranked.length; i++) {
+      for (let j = i + 1; j < ranked.length; j++) {
+        const a = ranked[i], b = ranked[j];   // a placed above b
+        const expected = 1 / (1 + Math.pow(10, (b.rating - a.rating) / 400));
+        const d = K * (1 - expected);
+        deltas.set(a, deltas.get(a) + d);
+        deltas.set(b, deltas.get(b) - d);
+      }
+    }
+    for (const [p, d] of deltas) {
+      p.ratingDelta = Math.round(d);
+      p.rating = Math.max(100, p.rating + p.ratingDelta);
+    }
   }
 
   async onLeave(client, consented) {
@@ -138,8 +163,8 @@ class AutoChessRoom extends Room {
       Object.assign(p, {
         gold: S.ECON.startGold, hp: S.ECON.startHP, streak: 0,
         units: [], itemsInv: [], shop: [], pity: 0,
-        ready: false, eliminated: false, pendingItems: null,
-        lastResult: null, placement: null,
+        ready: false, eliminated: false, spectator: false, pendingItems: null,
+        lastResult: null, placement: null, ratingDelta: 0,
       });
     }
     this.broadcastLobby();
@@ -401,11 +426,12 @@ class AutoChessRoom extends Room {
 
   checkEnd() {
     const alive = this.alive();
-    if (this.phase !== "lobby" && alive.length <= 1) {
+    if (this.phase !== "lobby" && this.phase !== "over" && alive.length <= 1) {
       this.clearTimer();
       this.phase = "over";
       this.winnerName = alive.length ? alive[0].name : "nobody";
       if (alive.length) alive[0].placement = 1;
+      this.applyElo();
       this.pushViews();
       return true;
     }
@@ -416,14 +442,14 @@ class AutoChessRoom extends Room {
   broadcastLobby() {
     this.broadcast("lobby", {
       phase: this.phase,
-      players: [...this.players.values()].map(p => ({ name: p.name, connected: p.connected, eliminated: p.eliminated })),
+      players: [...this.players.values()].map(p => ({ name: p.name, rating: p.rating, connected: p.connected, eliminated: p.eliminated })),
       canStart: this.alive().length >= 2,
     });
   }
 
   pushViews() {
     const roster = [...this.players.values()].map(p => ({
-      name: p.name, hp: Math.max(0, p.hp), streak: p.streak,
+      name: p.name, hp: Math.max(0, p.hp), streak: p.streak, rating: p.rating,
       units: p.units.length, eliminated: p.eliminated, connected: p.connected,
       placement: p.placement || null,
     }));
@@ -437,6 +463,7 @@ class AutoChessRoom extends Room {
         roster,
         you: {
           name: p.name, gold: p.gold, hp: Math.max(0, p.hp), streak: p.streak,
+          rating: p.rating, ratingDelta: p.ratingDelta,
           units: p.units.map(u => ({ key: u.key, star: u.star, item: u.item, sellValue: u.sellValue })),
           shop: p.shop, items: p.itemsInv,
           rerollCost: this.rerollCost(p),

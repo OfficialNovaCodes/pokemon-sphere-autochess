@@ -188,23 +188,45 @@ const SND = {
     87, 0, 87, 0, 98, 0, 98, 0, 110, 0, 110, 0, 98, 0, 98, 0,
   ],
 
-  startMusic() {
-    if (this.muted || !this.ensure() || this.musicTimer) return;
+  /* mellow shop theme: sparse triangle arps, 96bpm, very quiet */
+  PLAN_LEAD: [
+    523, 0, 0, 659, 0, 0, 784, 0, 0, 0, 659, 0, 0, 0, 0, 0,
+    494, 0, 0, 587, 0, 0, 740, 0, 0, 0, 587, 0, 0, 0, 0, 0,
+    523, 0, 0, 659, 0, 0, 784, 0, 0, 0, 880, 0, 0, 784, 0, 0,
+    659, 0, 0, 587, 0, 0, 523, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  ],
+  PLAN_BASS: [
+    131, 0, 0, 0, 0, 0, 0, 0, 98, 0, 0, 0, 0, 0, 0, 0,
+    123, 0, 0, 0, 0, 0, 0, 0, 98, 0, 0, 0, 0, 0, 0, 0,
+    131, 0, 0, 0, 0, 0, 0, 0, 110, 0, 0, 0, 0, 0, 0, 0,
+    98, 0, 0, 0, 0, 0, 0, 0, 87, 0, 0, 0, 0, 0, 0, 0,
+  ],
+
+  startMusic(kind) {
+    kind = kind || "battle";
+    if (this.musicKind === kind && this.musicTimer) return;
+    this.stopMusic();
+    if (this.muted || !this.ensure()) return;
     if (this.ctx.state === "suspended") this.ctx.resume();
+    this.musicKind = kind;
     this.musicStep = 0;
-    const stepDur = 60 / 150 / 4;  // 150bpm 16th notes
+    const battle = kind === "battle";
+    const lead = battle ? this.LEAD : this.PLAN_LEAD;
+    const bass = battle ? this.BASS : this.PLAN_BASS;
+    const stepDur = 60 / (battle ? 150 : 96) / 4;
+    this.musicGain.gain.value = battle ? 0.16 : 0.07;
     this.musicTimer = setInterval(() => {
-      const i = this.musicStep % this.LEAD.length;
-      const lead = this.LEAD[i], bass = this.BASS[i];
-      if (lead) this.tone(lead, stepDur * 0.9, "square", 0.55, 0, null, this.musicGain);
-      if (bass) this.tone(bass, stepDur * 1.8, "triangle", 0.8, 0, null, this.musicGain);
-      if (i % 4 === 0) this.noise(0.02, 0.04, 0, 4000);   // hat tick
+      const i = this.musicStep % lead.length;
+      if (lead[i]) this.tone(lead[i], stepDur * (battle ? 0.9 : 2.2), battle ? "square" : "triangle", battle ? 0.55 : 0.5, 0, null, this.musicGain);
+      if (bass[i]) this.tone(bass[i], stepDur * (battle ? 1.8 : 3.5), "triangle", 0.8, 0, null, this.musicGain);
+      if (battle && i % 4 === 0) this.noise(0.02, 0.04, 0, 4000);   // hat tick
       this.musicStep++;
     }, stepDur * 1000);
   },
 
   stopMusic() {
     if (this.musicTimer) { clearInterval(this.musicTimer); this.musicTimer = null; }
+    this.musicKind = null;
   },
 };
 

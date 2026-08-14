@@ -12,8 +12,10 @@ const url = urlArg ? urlArg.slice(6) : (process.env.SERVER_URL || "ws://localhos
 
 async function main() {
   const client = new Client(url);
-  const room = await client.joinOrCreate("autochess", { name });
-  console.log(`[bot] joined as ${name} (${room.sessionId})`);
+  const ratingArg = process.argv.find(a => a.startsWith("--rating="));
+  const rating = ratingArg ? parseInt(ratingArg.slice(9)) : 1000;
+  const room = await client.joinOrCreate("autochess", { name, rating });
+  console.log(`[bot] joined as ${name} (${room.sessionId}) rating ${rating}`);
 
   let view = null;
   let actedForRound = -1;
@@ -40,7 +42,8 @@ async function main() {
       setTimeout(() => room.send("pick-item", { i: Math.floor(Math.random() * 3) }), 300);
     }
     if (msg.phase === "over") {
-      console.log(`[bot] game over — winner: ${msg.winnerName}`);
+      const d = you.ratingDelta || 0;
+      console.log(`[bot] game over — winner: ${msg.winnerName} | my rating: ${you.rating} (${d >= 0 ? "+" : ""}${d})`);
       setTimeout(() => process.exit(0), 1000);
     }
   });

@@ -164,7 +164,7 @@
     for (const r of mp.roster) {
       const chip = document.createElement("span");
       chip.className = "roster-chip" + (r.eliminated ? " out" : "") + (r.name === mp.myName ? " me" : "");
-      chip.innerHTML = `<b>${r.name}</b><img src="sprites/ui/HP.png" alt="">${r.hp}${r.connected ? "" : " (dc)"}`;
+      chip.innerHTML = `<b>${r.name}</b><span class="chip-elo">${r.rating || 1000}</span><img src="sprites/ui/HP.png" alt="">${r.hp}${r.connected ? "" : " (dc)"}`;
       el.appendChild(chip);
     }
   }
@@ -187,7 +187,7 @@
       const startBtn = document.getElementById("lobby-start");
       if (roster) {
         roster.innerHTML = msg.players.map(p =>
-          `<div class="lobby-row">${p.name}${p.connected ? "" : " (dc)"}</div>`).join("");
+          `<div class="lobby-row">${p.name} <span class="chip-elo">${p.rating || 1000}</span>${p.connected ? "" : " (dc)"}</div>`).join("");
       }
       if (status) status.textContent = msg.canStart ? "ready when you are!" : "waiting for trainers (need 2+)...";
       if (startBtn) startBtn.disabled = !msg.canStart;
@@ -205,6 +205,19 @@
         mp.units = y.units; mp.itemsInv = y.items; mp.shop = y.shop;
         mp.pendingItems = y.pendingItems;
         mp.you = y;
+        mp.rating = y.rating;
+        if (msg.phase === "over") {
+          // persist the post-game rating; show the delta on the end screen
+          if (!mp.ratingSaved && typeof y.rating === "number") {
+            localStorage.setItem("psac-rating", String(y.rating));
+            mp.ratingSaved = true;
+            const d = y.ratingDelta || 0;
+            mp.ratingLine = `Rating ${y.rating} (${d >= 0 ? "+" : ""}${d})`;
+          }
+        } else {
+          mp.ratingSaved = false;
+          mp.ratingLine = null;
+        }
         mp.readyLabel = msg.phase === "plan" ? (y.ready ? "WAITING..." : "READY UP") : "READY UP";
         if (y.lastResult) {
           mp.lastResult = {
@@ -232,6 +245,7 @@
         mp.localClutch = false;
         mp.pendingResultPhase = false;
         mp.spectatingMatch = false;
+        SND.startMusic("plan");
       }
       mp.canRematch = msg.phase === "over";
       if (msg.phase === "over") {
@@ -329,7 +343,8 @@
       mp.myName = name;
       try {
         client = new Colyseus.Client(wsUrl);
-        room = await client.joinOrCreate("autochess", { name });
+        const rating = parseInt(localStorage.getItem("psac-rating")) || 1000;
+        room = await client.joinOrCreate("autochess", { name, rating });
         reconnToken = room.reconnectionToken;
         bindRoom();
         document.getElementById("lobby-join").style.display = "none";
