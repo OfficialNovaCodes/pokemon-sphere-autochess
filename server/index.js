@@ -17,7 +17,7 @@ const { Server, Room } = require("colyseus");
 const shared = ["data.js", "engine.js"]
   .map(f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8"))
   .join("\n;\n") +
-  "\n;globalThis.__SIM = { UNITS, MOVES, ITEMS, ECON, SHOP_ODDS, ENEMY_PLAN, TRAINERS, SYNERGY, SIM, EEVEELUTIONS, Battle, mulberry32, computeSynergies, typeMul };";
+  "\n;globalThis.__SIM = { UNITS, MOVES, ITEMS, ECON, SHOP_ODDS, ENEMY_PLAN, TRAINERS, SYNERGY, SIM, EEVEELUTIONS, Battle, mulberry32, computeSynergies, typeMul, craftFor, BASIC_ITEMS };";
 vm.runInThisContext(shared, { filename: "shared-sim.js" });
 const S = globalThis.__SIM;
 const POOL = Object.keys(S.UNITS).filter(k => S.UNITS[k].pool !== false);
@@ -232,7 +232,14 @@ class AutoChessRoom extends Room {
 
   equip(p, itemIdx, unitIdx) {
     const it = p.itemsInv[itemIdx], u = p.units[unitIdx];
-    if (!it || !u || u.item) return;
+    if (!it || !u) return;
+    if (u.item) {
+      const crafted = S.craftFor(it, u.item);
+      if (!crafted) return;
+      u.item = crafted;
+      p.itemsInv.splice(itemIdx, 1);
+      return;
+    }
     u.item = it;
     p.itemsInv.splice(itemIdx, 1);
   }
@@ -404,11 +411,10 @@ class AutoChessRoom extends Room {
     if (S.ECON.itemRounds.includes(this.round)) {
       this.phase = "item";
       this.phaseEndsAt = Date.now() + ITEM_SECONDS * 1000;
-      const keys = Object.keys(S.ITEMS);
       for (const p of this.alive()) {
         const picks = [];
         while (picks.length < 3) {
-          const k = keys[Math.floor(this.rng() * keys.length)];
+          const k = S.BASIC_ITEMS[Math.floor(this.rng() * S.BASIC_ITEMS.length)];
           if (!picks.includes(k)) picks.push(k);
         }
         p.pendingItems = picks;

@@ -168,7 +168,35 @@ const ITEMS = {
   berserk_gene: { name: "Berserk Gene", sprite: "sprites/items/BERSERK_GENE.png", desc: "+60% damage, lose 1 HP/s",         dmgMul: 1.6, selfDrain: 1 },
   black_belt:   { name: "Black Belt",   sprite: "sprites/items/BLACK_BELT.png",   desc: "Super-effective hits deal 1.5x",   expertBelt: true },
   assault_vest: { name: "Assault Vest", sprite: "sprites/items/ASSAULT_VEST.png", desc: "Take 25% less damage",             defMul: 0.75 },
+  /* ---- crafted items (combine two held components on one Pokémon) ---- */
+  choice_specs:   { name: "Choice Specs",   sprite: "sprites/items/CHOICE_SPECS.png",   desc: "+100% damage",                                   dmgMul: 2.0, crafted: true },
+  kings_rock:     { name: "King's Rock",    sprite: "sprites/items/KINGS_ROCK.png",     desc: "+40% dmg, +15% speed, hits can LAUNCH foes",     dmgMul: 1.4, speedMul: 1.15, kbOnHit: 0.2, crafted: true },
+  shiny_charm:    { name: "Shiny Charm",    sprite: "sprites/items/SHINY_CHARM.png",    desc: "Regen 4 HP/s",                                   regen: 4, crafted: true },
+  soul_dew:       { name: "Soul Dew",       sprite: "sprites/items/SOUL_DEW.png",       desc: "Take 35% less damage, regen 2 HP/s",             defMul: 0.65, regen: 2, crafted: true },
+  light_ball:     { name: "Light Ball",     sprite: "sprites/items/LIGHT_BALL.png",     desc: "+60% damage, heal 40% of damage dealt",          dmgMul: 1.6, lifesteal: 0.4, crafted: true },
+  protector:      { name: "Protector",      sprite: "sprites/items/PROTECTOR.png",      desc: "Attackers take 5 recoil, take 30% less damage",  thorns: 5, defMul: 0.7, crafted: true },
+  max_revive:     { name: "Max Revive",     sprite: "sprites/items/MAX_REVIVE.png",     desc: "Survive TWO lethal hits at 1 HP, regen 1.5",     sash: true, sashCharges: 2, regen: 1.5, crafted: true },
+  dynamax_band:   { name: "Dynamax Band",   sprite: "sprites/items/DYNAMAX_BAND.png",   desc: "+50% max HP, +20% damage",                       hpMul: 1.5, dmgMul: 1.2, crafted: true },
+  explosive_band: { name: "Explosive Band", sprite: "sprites/items/EXPLOSIVE_BAND.png", desc: "+120% damage, lose 2.5 HP/s",                    dmgMul: 2.2, selfDrain: 2.5, crafted: true },
 };
+
+/* crafting recipes: two held components -> a crafted item (order-free) */
+const RECIPES = {
+  "muscle_band+muscle_band":   "choice_specs",
+  "choice_scarf+muscle_band":  "kings_rock",
+  "leftovers+leftovers":       "shiny_charm",
+  "assault_vest+leftovers":    "soul_dew",
+  "muscle_band+shell_bell":    "light_ball",
+  "assault_vest+rocky_helmet": "protector",
+  "leftovers+sacred_ash":      "max_revive",
+  "black_belt+choice_scarf":   "dynamax_band",
+  "berserk_gene+berserk_gene": "explosive_band",
+};
+function craftFor(a, b) {
+  return RECIPES[[a, b].sort().join("+")] || null;
+}
+/* only components drop; crafted items come from combining */
+const BASIC_ITEMS = Object.keys(ITEMS).filter(k => !ITEMS[k].crafted);
 
 /* --------------------------------------------------------------------------
  * Type synergies — 2/4 of a type on your battle team buff the whole team.

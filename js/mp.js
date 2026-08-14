@@ -296,6 +296,11 @@
       mp.youAre = msg.youAre;
       mp.spectatingMatch = false;
       mp.enemyTeam = msg.youAre === 0 ? msg.teamB : msg.teamA;
+      mp.replaySpec = {
+        a: msg.teamA, b: msg.teamB, seed: msg.seed,
+        an: msg.youAre === 0 ? mp.myName : msg.enemyName,
+        bn: msg.youAre === 0 ? msg.enemyName : mp.myName,
+      };
       // deterministic replay of the authoritative sim
       mp.battle = new Battle(msg.teamA, msg.teamB, msg.seed);
       mp.replayDone = false;
@@ -396,6 +401,15 @@
     syncMute();
     const helpBtn = document.getElementById("help-btn");
     if (helpBtn) helpBtn.onclick = () => { SND.play("click"); ui.showHelp(true); };
+    const crBtn = document.getElementById("copy-replay");
+    if (crBtn) crBtn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(location.origin + "/?replay=" + encodeReplay(mp.replaySpec));
+        crBtn.textContent = "COPIED!";
+        setTimeout(() => { crBtn.textContent = "COPY REPLAY LINK"; }, 1400);
+      } catch (e) { /* clipboard unavailable */ }
+      SND.play("click");
+    };
 
     // hide lobby overlay once the game starts
     const lobbyWatcher = setInterval(() => {

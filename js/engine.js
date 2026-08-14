@@ -72,7 +72,10 @@ class Fighter {
       if (this.item.cdMul) this.cdMul *= this.item.cdMul;
       if (this.item.lifesteal) this.lifesteal += this.item.lifesteal;
       if (this.item.thorns) this.thorns += this.item.thorns;
+      if (this.item.hpMul) { this.maxhp = Math.round(this.maxhp * this.item.hpMul); this.hp = this.maxhp; }
     }
+    this.kbOnHit = (this.item && this.item.kbOnHit) || 0;
+    this.sashLeft = this.item && this.item.sash ? (this.item.sashCharges || 1) : 0;
 
     // battle state
     this.x = 0; this.y = 0; this.vx = 0; this.vy = 0;
@@ -205,10 +208,10 @@ class Battle {
 
   tryKill(f, killer) {
     if (f.hp > 0 || !f.alive) return;
-    if (f.item && f.item.sash && !f.sashUsed) {
-      f.sashUsed = true;
+    if (f.sashLeft > 0) {
+      f.sashLeft--;
       f.hp = 1;
-      this.popup(f.x, f.y - f.r - 30, "Focus Sash!", "#ffd700", true);
+      this.popup(f.x, f.y - f.r - 30, f.item ? f.item.name + "!" : "Endure!", "#ffd700", true);
       return;
     }
     f.alive = false;
@@ -499,6 +502,13 @@ class Battle {
             if (f.slowOnHit > 0 && this.rng() < f.slowOnHit) {
               e.slowT = 1.6; e.slowMul = 0.6;
               this.popup(e.x, e.y - e.r - 28, "Chilled!", "#98d8d8", false);
+            }
+            if (f.kbOnHit > 0 && this.rng() < f.kbOnHit) {
+              const ka = Math.atan2(e.y - f.y, e.x - f.x);
+              e.vx += Math.cos(ka) * 480; e.vy += Math.sin(ka) * 480;
+              e.launchT = 0.4;
+              this.popup(e.x, e.y - e.r - 30, "LAUNCHED!", "#ffcc2e", false);
+              this.emit("launch");
             }
           }
           f.meleeCd = SIM.hitCooldown * f.cdMul;

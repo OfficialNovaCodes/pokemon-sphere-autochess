@@ -690,6 +690,11 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .help-row img { width: 34px; height: 34px; image-rendering: pixelated; flex-shrink: 0; }
 .help-row b { color: var(--blue-deep); }
 
+/* ---------------- replay viewer ---------------- */
+.replay-mode .panels { display: none; }
+.replay-mode #start-battle { display: none; }
+.replay-mode #reroll { display: none; }
+
 /* ---------------- small screens ---------------- */
 @media (max-width: 700px) {
   header h1 { font-size: 19px; }

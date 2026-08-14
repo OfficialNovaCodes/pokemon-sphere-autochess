@@ -180,7 +180,17 @@ class Game {
   equip(itemIdx, unitIdx) {
     if (this.phase !== "plan") return false;
     const it = this.itemsInv[itemIdx], u = this.units[unitIdx];
-    if (!it || !u || u.item) return false;
+    if (!it || !u) return false;
+    if (u.item) {
+      // holding something already: combine if a recipe exists
+      const crafted = craftFor(it, u.item);
+      if (!crafted) return false;
+      u.item = crafted;
+      this.itemsInv.splice(itemIdx, 1);
+      ui.toast(`Crafted ${ITEMS[crafted].name}!`, u.key);
+      ui.render();
+      return true;
+    }
     u.item = it;
     this.itemsInv.splice(itemIdx, 1);
     SND.play("equip");
@@ -223,15 +233,14 @@ class Game {
         star = 2; cost *= 3;
       }
       const item = this.round >= 6 && this.rng() < 0.25
-        ? Object.keys(ITEMS)[Math.floor(this.rng() * Object.keys(ITEMS).length)] : null;
+        ? BASIC_ITEMS[Math.floor(this.rng() * BASIC_ITEMS.length)] : null;
       team.push({ key, star, item });
       budget -= cost;
     }
     if (!team.length) team.push({ key: "magikarp", star: 1, item: null });
     // elites always bring at least one held item
     if (this.isElite() && !team.some(u => u.item)) {
-      const keys = Object.keys(ITEMS);
-      team[0].item = keys[Math.floor(this.rng() * keys.length)];
+      team[0].item = BASIC_ITEMS[Math.floor(this.rng() * BASIC_ITEMS.length)];
     }
     return team;
   }
@@ -263,7 +272,11 @@ class Game {
     const mine = this.fightingUnits();
     if (!mine.length) return false;
     this.phase = "battle";
-    this.battle = new Battle(mine, this.enemyTeam, (this.seed * 7919 + this.round * 104729) >>> 0);
+    const seed = (this.seed * 7919 + this.round * 104729) >>> 0;
+    this.battle = new Battle(mine, this.enemyTeam, seed);
+    // everything needed to re-watch this exact battle from a URL
+    const strip = (t) => t.map(u => ({ key: u.key, star: u.star, item: u.item, px: u.px, py: u.py }));
+    this.replaySpec = { a: strip(mine), b: strip(this.enemyTeam), seed, an: "You", bn: this.trainer().name };
     SND.play("battle-start");
     SND.startMusic();
     ui.render();
@@ -348,10 +361,9 @@ class Game {
     const eliteBonus = this.eliteReward;
     this.eliteReward = false;
     if (ECON.itemRounds.includes(this.round) || eliteBonus) {
-      const keys = Object.keys(ITEMS);
       const picks = [];
       while (picks.length < 3) {
-        const k = keys[Math.floor(this.rng() * keys.length)];
+        const k = BASIC_ITEMS[Math.floor(this.rng() * BASIC_ITEMS.length)];
         if (!picks.includes(k)) picks.push(k);
       }
       this.pendingItems = picks;
@@ -698,7 +710,8 @@ const ui = {
     const cap = ECON.teamCap(g.round);
     const equipMode = this.selectedItem !== null && this.selectedItem !== undefined;
 
-    this.el("round").textContent = `Stage ${g.round}/${ECON.maxRounds}`;
+    this.el("round").textContent = g.replay ? "REPLAY" :
+      `${g.daily ? "DAILY · " : ""}Stage ${g.round}/${ECON.maxRounds}`;
     this.el("hp-val").textContent = Math.max(0, g.hp);
     this.el("gold-val").textContent = g.gold;
     const st = g.streak;
@@ -771,9 +784,10 @@ const ui = {
       if (i === cap) addSection(`BENCH ${g.units.length - cap}/${ECON.benchCap - cap}`, "sec-bench");
       const spec = UNITS[u.key];
       const fighting = i < cap;
-      const canEquip = equipMode && !u.item;
+      const selKey = equipMode ? g.itemsInv[this.selectedItem] : null;
+      const canEquip = equipMode && (!u.item || !!craftFor(selKey, u.item));
       const row = document.createElement("div");
-      row.className = "unit-row" + (fighting ? " fighting" : " benched") + (canEquip ? " equippable" : "") + (equipMode && u.item ? " equip-blocked" : "");
+      row.className = "unit-row" + (fighting ? " fighting" : " benched") + (canEquip ? " equippable" : "") + (equipMode && !canEquip ? " equip-blocked" : "");
       row.dataset.testid = `unit-${i}`;
       row.innerHTML = `
         <div class="ur-bubble"><img src="sprites/${u.key}.png" alt="${spec.name}"></div>
@@ -862,7 +876,8 @@ const ui = {
         // light up equippable rows WITHOUT re-rendering (a render would
         // destroy the dragged node and abort the drag)
         document.querySelectorAll("#team-list .unit-row").forEach((r, ri) => {
-          if (g.units[ri] && !g.units[ri].item) r.classList.add("equippable");
+          const uu = g.units[ri];
+          if (uu && (!uu.item || craftFor(k, uu.item))) r.classList.add("equippable");
           else r.classList.add("equip-blocked");
         });
       };
@@ -916,6 +931,14 @@ const ui = {
           .slice(0, 4);
         html += `<div class="report-head">RUN REPORT</div>`;
         if (g.ratingLine) html += `<div class="rating-line">${g.ratingLine}</div>`;
+        if (g.daily) {
+          const cleared = g.phase === "victory" ? ECON.maxRounds : g.round - 1;
+          g.dailyScore = cleared * 1000 + Math.max(0, g.hp) * 10 + g.totals.goldEarned;
+          const dayKey = "psac-daily-" + new Date().toISOString().slice(0, 10);
+          const best = Math.max(g.dailyScore, parseInt(localStorage.getItem(dayKey)) || 0);
+          localStorage.setItem(dayKey, String(best));
+          html += `<div class="rating-line">DAILY SCORE: ${g.dailyScore}${best > g.dailyScore ? ` · best today ${best}` : ""}</div>`;
+        }
         html += `<div class="report-record">${g.totals.wins}W — ${g.totals.losses}L · ${g.totals.goldEarned} gold earned · reached stage ${g.round}</div>`;
         if (entries.length) {
           html += entries.map((e, i) => `
@@ -931,6 +954,10 @@ const ui = {
       this.el("continue").style.display = (g.phase === "result" && !g.mp) ? "inline-block" : "none";
       this.el("new-game").style.display =
         ((g.phase === "victory" || g.phase === "gameover") && g.canRematch !== false) ? "inline-block" : "none";
+      const cr = this.el("copy-replay");
+      if (cr) cr.style.display = g.replaySpec ? "inline-block" : "none";
+      const sd = this.el("share-daily");
+      if (sd) sd.style.display = (g.daily && runOver) ? "inline-block" : "none";
     } else {
       resOv.style.display = "none";
     }
@@ -958,16 +985,88 @@ const ui = {
   },
 };
 
+/* ---------------- replay codec: a whole battle in a URL ---------------- */
+function encodeReplay(spec) {
+  return btoa(unescape(encodeURIComponent(JSON.stringify(spec))));
+}
+function decodeReplay(code) {
+  return JSON.parse(decodeURIComponent(escape(atob(code))));
+}
+
+/* replay viewer: loops one deterministic battle, no game around it */
+function bootReplay(spec) {
+  ui.selectedItem = null;
+  ui.init();
+  document.body.classList.add("replay-mode");
+  const stub = {
+    replay: true, mp: false, phase: "battle", speedMul: 1, youAre: 0,
+    round: 0, gold: 0, hp: 0, streak: 0,
+    units: [], itemsInv: [], shop: [], enemyTeam: [],
+    career: {}, totals: { wins: 0, losses: 0, goldEarned: 0 },
+    lastResult: null, pendingItems: null, canRematch: false,
+    battle: new Battle(spec.a, spec.b, spec.seed),
+    fightingUnits() { return []; },
+    trainer() { return { name: `${spec.an || "A"} vs ${spec.bn || "B"}`, types: [] }; },
+    themeKey() { return "meadow"; },
+    isElite() { return false; },
+    rerollCost() { return ECON.rerollCost; },
+    incomePreview() { return { base: 0, interest: 0, total: 0 }; },
+    scoutReport() { return null; },
+    setSpeed(n) { this.speedMul = Math.max(1, Math.min(16, n)); ui.render(); },
+    setPos() { return false; }, commitPos() { return true; },
+    buy() { return false; }, sell() { return false; }, reroll() { return false; },
+    equip() { return false; }, reorder() { return false; }, moveFront() { return false; },
+    startBattle() { return false; }, pickItem() { return false; }, continueFromResult() { return false; },
+    resolveBattle() {  // hold on the banner, then run it again
+      this.phase = "replay-hold";
+      setTimeout(() => {
+        this.battle = new Battle(spec.a, spec.b, spec.seed);
+        this.phase = "battle";
+        SND.startMusic("battle");
+      }, 2200);
+    },
+  };
+  window.game = stub;
+  document.getElementById("speed-btn").onclick = () => {
+    const next = { 1: 2, 2: 4, 4: 8, 8: 16, 16: 1 }[stub.speedMul] || 1;
+    stub.setSpeed(next);
+  };
+  const muteBtn = document.getElementById("mute-btn");
+  const syncMute = () => { muteBtn.textContent = SND.muted ? "✕" : "♪"; muteBtn.classList.toggle("off", SND.muted); };
+  muteBtn.onclick = () => { SND.toggle(); if (!SND.muted) SND.play("click"); syncMute(); };
+  syncMute();
+  const helpBtn = document.getElementById("help-btn");
+  if (helpBtn) helpBtn.onclick = () => { location.href = location.pathname; };
+  ui.render();
+  const pill = document.getElementById("round");
+  if (pill) pill.textContent = "REPLAY";
+}
+
 /* ---------------- boot (singleplayer; mp.html sets MP_MODE and boots
  * its own adapter via js/mp.js instead) ---------------- */
 window.addEventListener("DOMContentLoaded", () => {
   if (window.MP_MODE) return;
   const params = new URLSearchParams(location.search);
-  const seed = parseInt(params.get("seed")) || ((Math.random() * 1e9) | 0);
+  const replayCode = params.get("replay");
+  if (replayCode) {
+    try { bootReplay(decodeReplay(replayCode)); return; }
+    catch (e) { console.warn("bad replay code", e); }
+  }
+  // daily challenge: everyone plays the same seeded run each UTC day
+  const daily = params.has("daily");
+  const now = new Date();
+  const dailySeed = now.getUTCFullYear() * 10000 + (now.getUTCMonth() + 1) * 100 + now.getUTCDate();
+  const seed = daily ? dailySeed : (parseInt(params.get("seed")) || ((Math.random() * 1e9) | 0));
   ui.selectedItem = null;
   ui.init();
   window.game = new Game(seed);
-  window.newGame = (s) => { window.game = new Game(s ?? ((Math.random() * 1e9) | 0)); ui.render(); };
+  window.game.daily = daily;
+  window.newGame = (s) => {
+    const g = new Game(daily ? dailySeed : (s ?? ((Math.random() * 1e9) | 0)));
+    g.daily = daily;
+    window.game = g;
+    ui.render();
+  };
 
   document.getElementById("reroll").onclick = () => game.reroll();
   document.getElementById("start-battle").onclick = () => game.startBattle();
@@ -988,6 +1087,28 @@ window.addEventListener("DOMContentLoaded", () => {
   const helpBtn = document.getElementById("help-btn");
   if (helpBtn) helpBtn.onclick = () => { SND.play("click"); ui.showHelp(true); };
   ui.showHelp(false);
+
+  const copyBtn = (id, getText) => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(getText());
+        const old = b.textContent;
+        b.textContent = "COPIED!";
+        setTimeout(() => { b.textContent = old; }, 1400);
+      } catch (e) { /* clipboard unavailable */ }
+      SND.play("click");
+    };
+  };
+  copyBtn("copy-replay", () =>
+    location.origin + "/?replay=" + encodeReplay(window.game.replaySpec));
+  copyBtn("share-daily", () => {
+    const g = window.game;
+    const day = new Date().toISOString().slice(0, 10);
+    const outcome = g.phase === "victory" ? "CHAMPION — all 10 stages!" : `defeated at stage ${g.round}`;
+    return `Pokémon Sphere AutoChess — Daily ${day}\n${outcome}\nScore: ${g.dailyScore}\n${location.origin}/?daily`;
+  });
 
   ui.render();
 });
