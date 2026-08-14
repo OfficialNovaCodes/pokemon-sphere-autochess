@@ -55,11 +55,17 @@ when 2+ players are in — so you can play PVP alone against a bot.
 
 Deployed on Heroku (app `pokemon-sphere-autochess`, Basic dyno). One Node
 process serves the static client AND the Colyseus websocket on the same
-`$PORT` (`server/index.js` + express). Deploy updates with:
+`$PORT` (`server/index.js` + express).
+
+**Source of truth:** https://github.com/OfficialNovaCodes/pokemon-sphere-autochess
+(private). Pushing to `main` auto-deploys to Heroku via GitHub Actions
+(`.github/workflows/deploy.yml`, `HEROKU_API_KEY` repo secret):
 
 ```
-git add -A && git commit -m "..." && git push heroku main
+git add -A && git commit -m "..." && git push
 ```
+
+Direct deploy still works too: `git push heroku main`.
 
 Add a practice opponent to the live server:
 `node server/bot.js Rival --start "--url=wss://pokemon-sphere-autochess-648c8122b310.herokuapp.com"`
