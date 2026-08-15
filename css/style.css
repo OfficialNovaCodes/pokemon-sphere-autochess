@@ -709,14 +709,76 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .replay-mode #start-battle { display: none; }
 .replay-mode #reroll { display: none; }
 
-/* ---------------- small screens ---------------- */
+/* ---------------- small screens / phones ---------------- */
+@media (max-width: 900px) {
+  main { padding: 4px 8px 18px; }
+  .panels { grid-template-columns: 1fr; gap: 12px; }
+  /* Pokédex under the others on tablets, hidden on phones (tap = buy) */
+  .panel { padding: 8px; }
+  .panel::before { display: none; }
+}
+
 @media (max-width: 700px) {
-  header h1 { font-size: 19px; }
-  .pill { font-size: 12px; padding: 3px 9px; }
-  .mini { padding: 7px 12px; }        /* fatter touch targets */
-  .shop-slots { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+  header { padding: 8px 10px; gap: 6px; }
+  header h1 { font-size: 16px; letter-spacing: 0; gap: 5px; }
+  .logo-ball { width: 24px; height: 24px; }
+  .mp-tag { font-size: 11px; padding: 1px 8px; }
+  .pills { gap: 5px; }
+  .pill { font-size: 11.5px; padding: 3px 9px; border-width: 2px; }
+  .pill.stat img { width: 15px; height: 15px; }
+
+  /* arena fills the width, stays 16:9-ish */
+  canvas#arena { border-width: 3px; border-radius: 10px; box-shadow: 0 0 0 3px var(--gold), 0 0 0 5px var(--gold-line), 0 5px 0 rgba(0,40,35,.4); }
+  .arena-bar { gap: 8px; margin: 10px 0 4px; }
+  #start-battle { font-size: 16px; padding: 12px 22px; }
+  #speed-btn { font-size: 13px; padding: 10px 14px; }
+
+  /* shop: 3+2 grid so every card is a comfortable thumb target */
+  .shop-slots { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 7px; }
+  .shop-card { padding: 8px 2px 6px; border-radius: 10px; min-height: 96px; }
+  .sc-bubble, .sc-bubble img { width: 46px; height: 46px; }
+  .sc-name { font-size: 11px; }
   .sc-move { display: none; }
-  .arena-bar button { font-size: 14px; padding: 9px 16px; }
+  .sc-type { font-size: 7.5px; padding: 1px 5px; }
+  .sc-cost { font-size: 10px; padding: 1px 5px; top: -6px; right: -3px; }
+  .sc-owned { font-size: 9px; padding: 1px 4px; top: -6px; left: -3px; }
+  .sc-counter { font-size: 8px; padding: 1px 5px; }
+  .panel-head h2 { font-size: 14px; }
+  .reroll-hint { display: none; }     /* income preview is in the modal anyway */
+  #reroll { font-size: 13px; padding: 8px 14px; }
+
+  /* team rows: bigger touch targets, tighter text */
+  .unit-row { padding: 6px 8px; }
+  .ur-bubble, .ur-bubble img { width: 36px; height: 36px; }
+  .ur-name { font-size: 13px; }
+  .ur-sub { font-size: 10px; }
+  .mini { padding: 8px 12px; font-size: 12px; }
+  .item-chip { padding: 8px 12px 8px 6px; font-size: 12px; }
+
+  /* modals fit the screen */
+  .modal { padding: 8px; border-radius: 16px; }
+  .modal-face { padding: 14px 12px; }
+  .banner { font-size: 26px; }
+  .result-detail { font-size: 13px; }
+  .item-choices { flex-direction: column; align-items: center; gap: 8px; }
+  .item-card { width: 100%; max-width: 260px; display: flex; align-items: center; gap: 10px; text-align: left; padding: 8px 12px; }
+  .ic-icon { width: 44px; height: 44px; margin: 0; flex-shrink: 0; }
+  .ic-icon img { width: 32px; height: 32px; }
+  .board-body { max-height: 45vh; }
+  .report-row, .board-body .report-row { min-width: 0; width: 100%; }
+  .help-row { font-size: 12px; padding: 6px 9px; gap: 9px; }
+  .help-row img { width: 28px; height: 28px; }
+
+  /* multiplayer roster wraps */
+  .roster-chip { font-size: 11.5px; padding: 3px 10px; }
+  #name-input { width: 100%; max-width: 220px; }
+}
+
+/* very small phones: drop the Pokédex panel (tap-to-buy still works) */
+@media (max-width: 480px) {
+  .inspect-panel { display: none; }
+  header h1 .accent { display: none; }
+  .banner { font-size: 22px; }
 }
 .roster-chip.me { border-color: var(--gold-line); box-shadow: 0 0 0 2px var(--gold), 0 3px 0 rgba(90,60,0,.4); }
 .roster-chip.out { opacity: .45; text-decoration: line-through; }
