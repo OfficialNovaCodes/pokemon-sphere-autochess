@@ -210,7 +210,7 @@ class Game {
     const plan = ENEMY_PLAN[Math.min(this.round - 1, ENEMY_PLAN.length - 1)];
     const trainer = this.trainer();
     const team = [];
-    let budget = Math.round(plan.budget * (this.isElite() ? 1.3 : 1));
+    let budget = Math.round(plan.budget * (this.isElite() ? 1.4 : 1));
     if (plan.boss) {
       team.push({ key: "mewtwo", star: 1, item: "muscle_band" });
       budget -= 5;
@@ -219,12 +219,12 @@ class Game {
     while (team.length < plan.units && budget > 0 && guard++ < 200) {
       const affordable = POOL.filter(k => UNITS[k].cost <= Math.min(plan.maxTier, budget));
       if (!affordable.length) break;
-      // ~75% themed picks so trainer teams read as their type (and synergize)
+      // ~85% themed picks so trainer teams read as their type (and synergize)
       const themed = affordable.filter(k => trainer.types.includes(UNITS[k].type));
-      const choices = themed.length && this.rng() < 0.75 ? themed : affordable;
+      const choices = themed.length && this.rng() < 0.85 ? themed : affordable;
       const key = choices[Math.floor(this.rng() * choices.length)];
       let star = 1, cost = UNITS[key].cost;
-      if (this.round >= 5 && budget >= cost * 3 && this.rng() < 0.3) {
+      if (this.round >= 4 && budget >= cost * 3 && this.rng() < 0.45) {
         if (UNITS[key].evolvesTo && UNITS[key].evolvesTo !== "@eeveelution") {
           team.push({ key: UNITS[key].evolvesTo, star: 1, item: null });
           budget -= cost * 3;
@@ -868,10 +868,7 @@ const ui = {
           <div class="ur-name">${spec.name}${u.star > 1 ? ' <span class="star">★</span>' : ""}${u.item ? ` <img class="ur-item" src="${ITEMS[u.item].sprite}" title="${ITEMS[u.item].name}: ${ITEMS[u.item].desc}" alt="${ITEMS[u.item].name}">` : ""}</div>
           <div class="ur-sub">${spec.move} · HP ${spec.hp}</div>
         </div>
-        ${!fighting ? `<button class="mini up" data-testid="front-${i}" data-tip="Move to battle team">▲</button>` : (i > 0 ? `<button class="mini up" data-testid="front-${i}" data-tip="Move to front">▲</button>` : "")}
         <button class="mini sell" data-testid="sell-${i}" data-tip="Sell for ${u.sellValue} gold"><img src="sprites/items/COIN.png" alt="">${u.sellValue}</button>`;
-      const upBtn = row.querySelector(`[data-testid="front-${i}"]`);
-      if (upBtn) upBtn.onclick = (e) => { e.stopPropagation(); g.moveFront(i); };
       row.querySelector(`[data-testid="sell-${i}"]`).onclick = (e) => { e.stopPropagation(); g.sell(i); };
       row.onclick = () => {
         if (equipMode) {

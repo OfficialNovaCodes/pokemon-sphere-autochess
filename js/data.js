@@ -58,6 +58,8 @@ const MOVES = {
   "Poison Gas":    { cost: 4, kind: "poison", stacks: 3 },
   "Sing":          { cost: 5, kind: "sleep", dur: 2.2 },
   "Dragon Claw":   { cost: 4, kind: "buff", dmgMul: 1.5, speedMul: 1.1, dur: 4 },
+  "Dragon Breath": { cost: 4, kind: "proj", count: 2, dmg: 8, pspeed: 420 },
+  "Bullet Punch":  { cost: 3, kind: "dash", dmg: 11, kb: 260 },
   "Body Slam":     { cost: 4, kind: "dash", dmg: 16, kb: 780 },
   "Aura Sphere":   { cost: 4, kind: "proj", count: 2, dmg: 9, pspeed: 340, homing: true },
   "Ice Beam":      { cost: 4, kind: "proj", count: 3, dmg: 7, pspeed: 440, slowMul: 0.6, slowDur: 2.0 },
@@ -91,44 +93,68 @@ const MOVES = {
  * unavailable (pool:false) and only reachable by combining 3 copies.
  * ------------------------------------------------------------------------ */
 const UNITS = {
-  /* ------ tier 1 ------ */
+  /* ------ tier 1 (all base forms — evolve by combining 3) ------ */
   magikarp:   { name: "Magikarp",  cost: 1, type: "water",    hp: 110, dmg: 2.2, speed: 0.95, r: 27, move: "Splash",       evolvesTo: "gyarados" },
   caterpie:   { name: "Caterpie",  cost: 1, type: "bug",      hp: 105, dmg: 2.6, speed: 0.95, r: 26, move: "String Shot",  evolvesTo: "metapod" },
   charmander: { name: "Charmander",cost: 1, type: "fire",     hp: 100, dmg: 3.0, speed: 1.02, r: 26, move: "Ember",        evolvesTo: "charmeleon" },
   squirtle:   { name: "Squirtle",  cost: 1, type: "water",    hp: 105, dmg: 3.0, speed: 1.00, r: 26, move: "Water Gun",    evolvesTo: "wartortle" },
   bulbasaur:  { name: "Bulbasaur", cost: 1, type: "grass",    hp: 100, dmg: 3.0, speed: 1.00, r: 26, move: "Leech Seed",   evolvesTo: "ivysaur" },
   eevee:      { name: "Eevee",     cost: 1, type: "normal",   hp: 100, dmg: 3.0, speed: 1.04, r: 26, move: "Swift",        evolvesTo: "@eeveelution" },
-  pikachu:    { name: "Pikachu",   cost: 1, type: "electric", hp: 95,  dmg: 3.2, speed: 1.12, r: 26, move: "Thunderbolt" },
-  cubone:     { name: "Cubone",    cost: 1, type: "ground",   hp: 105, dmg: 3.0, speed: 1.00, r: 26, move: "Bonemerang" },
+  pikachu:    { name: "Pikachu",   cost: 1, type: "electric", hp: 95,  dmg: 3.2, speed: 1.12, r: 26, move: "Thunderbolt",  evolvesTo: "raichu" },
+  cubone:     { name: "Cubone",    cost: 1, type: "ground",   hp: 105, dmg: 3.0, speed: 1.00, r: 26, move: "Bonemerang",   evolvesTo: "marowak" },
+  machop:     { name: "Machop",    cost: 1, type: "fighting", hp: 105, dmg: 2.8, speed: 0.98, r: 26, move: "Dynamic Punch", evolvesTo: "machoke" },
+  gastly:     { name: "Gastly",    cost: 1, type: "ghost",    hp: 85,  dmg: 3.0, speed: 1.10, r: 25, move: "Shadow Ball",  evolvesTo: "haunter" },
+  abra:       { name: "Abra",      cost: 1, type: "psychic",  hp: 80,  dmg: 3.0, speed: 1.10, r: 25, move: "Psychic", dodge: 0.12, evolvesTo: "kadabra" },
   /* ------ tier 2 ------ */
   growlithe:  { name: "Growlithe", cost: 2, type: "fire",     hp: 100, dmg: 3.4, speed: 1.08, r: 26, move: "Ember",        evolvesTo: "arcanine" },
   gible:      { name: "Gible",     cost: 2, type: "dragon",   hp: 105, dmg: 3.4, speed: 1.00, r: 27, move: "Dragon Claw",  evolvesTo: "gabite" },
-  machamp:    { name: "Machamp",   cost: 2, type: "fighting", hp: 110, dmg: 3.6, speed: 0.98, r: 27, move: "Dynamic Punch" },
-  gengar:     { name: "Gengar",    cost: 2, type: "ghost",    hp: 95,  dmg: 3.6, speed: 1.08, r: 26, move: "Shadow Ball" },
-  scyther:    { name: "Scyther",   cost: 2, type: "bug",      hp: 95,  dmg: 3.4, speed: 1.10, r: 26, move: "Fury Cutter" },
-  koffing:    { name: "Koffing",   cost: 2, type: "poison",   hp: 105, dmg: 3.2, speed: 0.96, r: 26, move: "Toxic Spikes" },
+  scyther:    { name: "Scyther",   cost: 2, type: "bug",      hp: 95,  dmg: 3.4, speed: 1.10, r: 26, move: "Fury Cutter",  evolvesTo: "scizor" },
+  koffing:    { name: "Koffing",   cost: 2, type: "poison",   hp: 105, dmg: 3.2, speed: 0.96, r: 26, move: "Toxic Spikes", evolvesTo: "weezing" },
   ditto:      { name: "Ditto",     cost: 2, type: "normal",   hp: 110, dmg: 2.6, speed: 1.00, r: 26, move: "Substitute" },
-  jigglypuff: { name: "Jigglypuff",cost: 2, type: "fairy",    hp: 100, dmg: 3.2, speed: 1.00, r: 26, move: "Sing" },
+  jigglypuff: { name: "Jigglypuff",cost: 2, type: "fairy",    hp: 100, dmg: 3.2, speed: 1.00, r: 26, move: "Sing",         evolvesTo: "wigglytuff" },
+  exeggcute:  { name: "Exeggcute", cost: 2, type: "grass",    hp: 105, dmg: 2.8, speed: 0.95, r: 27, move: "Egg Barrage",  evolvesTo: "exeggutor" },
+  riolu:      { name: "Riolu",     cost: 2, type: "fighting", hp: 95,  dmg: 3.4, speed: 1.12, r: 26, move: "Aura Sphere",  evolvesTo: "lucario" },
+  munchlax:   { name: "Munchlax",  cost: 2, type: "normal",   hp: 140, dmg: 3.0, speed: 0.85, r: 29, move: "Body Slam",    evolvesTo: "snorlax" },
   /* ------ tier 3 ------ */
-  snorlax:    { name: "Snorlax",   cost: 3, type: "normal",   hp: 160, dmg: 3.8, speed: 0.82, r: 33, move: "Body Slam" },
-  lucario:    { name: "Lucario",   cost: 3, type: "fighting", hp: 110, dmg: 4.2, speed: 1.12, r: 27, move: "Aura Sphere" },
   lapras:     { name: "Lapras",    cost: 3, type: "ice",      hp: 140, dmg: 3.8, speed: 0.90, r: 32, move: "Ice Beam" },
   heracross:  { name: "Heracross", cost: 3, type: "bug",      hp: 120, dmg: 4.2, speed: 1.02, r: 28, move: "Megahorn" },
-  alakazam:   { name: "Alakazam",  cost: 3, type: "psychic",  hp: 95,  dmg: 4.4, speed: 1.10, r: 26, move: "Psychic", dodge: 0.22 },
-  onix:       { name: "Onix",      cost: 3, type: "rock",     hp: 165, dmg: 3.6, speed: 0.78, r: 34, move: "Stealth Rock" },
-  exeggcute:  { name: "Exeggcute", cost: 2, type: "grass",    hp: 105, dmg: 2.8, speed: 0.95, r: 27, move: "Egg Barrage",  evolvesTo: "exeggutor" },
-  exeggutor:  { name: "Exeggutor", cost: 2, type: "grass",    hp: 185, dmg: 5.4, speed: 0.95, r: 33, move: "Egg Barrage",  pool: false },
+  onix:       { name: "Onix",      cost: 3, type: "rock",     hp: 165, dmg: 3.6, speed: 0.78, r: 34, move: "Stealth Rock", evolvesTo: "steelix" },
+  wailmer:    { name: "Wailmer",   cost: 3, type: "water",    hp: 150, dmg: 3.2, speed: 0.85, r: 31, move: "Water Gun",    evolvesTo: "wailord" },
+  dratini:    { name: "Dratini",   cost: 3, type: "dragon",   hp: 110, dmg: 3.8, speed: 1.02, r: 26, move: "Dragon Breath", evolvesTo: "dragonair" },
+  ralts:      { name: "Ralts",     cost: 3, type: "psychic",  hp: 95,  dmg: 3.8, speed: 1.02, r: 25, move: "Psychic",      evolvesTo: "kirlia" },
   /* ------ tier 4 ------ */
-  dragonite:  { name: "Dragonite", cost: 4, type: "dragon",   hp: 145, dmg: 4.8, speed: 1.00, r: 31, move: "Hyper Beam" },
-  tyranitar:  { name: "Tyranitar", cost: 4, type: "rock",     hp: 160, dmg: 4.6, speed: 0.90, r: 32, move: "Sandstorm" },
-  metagross:  { name: "Metagross", cost: 4, type: "steel",    hp: 155, dmg: 4.6, speed: 0.88, r: 32, move: "Meteor Mash" },
-  gardevoir:  { name: "Gardevoir", cost: 4, type: "psychic",  hp: 130, dmg: 4.8, speed: 1.04, r: 29, move: "Psywave" },
-  wailord:    { name: "Wailord",   cost: 4, type: "water",    hp: 230, dmg: 3.4, speed: 0.80, r: 42, move: "Water Spout" },
-  /* ------ tier 5 ------ */
+  larvitar:   { name: "Larvitar",  cost: 4, type: "rock",     hp: 130, dmg: 3.8, speed: 0.92, r: 27, move: "Rock Throw",   evolvesTo: "pupitar" },
+  beldum:     { name: "Beldum",    cost: 4, type: "steel",    hp: 125, dmg: 3.8, speed: 0.90, r: 27, move: "Meteor Mash",  evolvesTo: "metang" },
+  /* ------ tier 5 (legendaries — no lines, gold-star on 3) ------ */
   mewtwo:     { name: "Mewtwo",    cost: 5, type: "psychic",  hp: 150, dmg: 5.6, speed: 1.06, r: 30, move: "Psystrike" },
   rayquaza:   { name: "Rayquaza",  cost: 5, type: "dragon",   hp: 160, dmg: 5.4, speed: 1.05, r: 32, move: "Hyper Beam" },
   kyogre:     { name: "Kyogre",    cost: 5, type: "water",    hp: 165, dmg: 5.0, speed: 0.95, r: 33, move: "Origin Pulse" },
   groudon:    { name: "Groudon",   cost: 5, type: "ground",   hp: 165, dmg: 5.0, speed: 0.92, r: 33, move: "Lava Plume" },
+  /* ------ evolved forms of the new lines (combine-only) ------ */
+  raichu:     { name: "Raichu",    cost: 1, type: "electric", hp: 175, dmg: 6.4, speed: 1.15, r: 30, move: "Thunderbolt",  pool: false },
+  marowak:    { name: "Marowak",   cost: 1, type: "ground",   hp: 185, dmg: 6.2, speed: 1.00, r: 30, move: "Bonemerang",   pool: false },
+  machoke:    { name: "Machoke",   cost: 1, type: "fighting", hp: 150, dmg: 4.6, speed: 1.00, r: 28, move: "Dynamic Punch", pool: false, evolvesTo: "machamp" },
+  machamp:    { name: "Machamp",   cost: 1, type: "fighting", hp: 205, dmg: 6.8, speed: 1.02, r: 32, move: "Dynamic Punch", pool: false },
+  haunter:    { name: "Haunter",   cost: 1, type: "ghost",    hp: 130, dmg: 4.8, speed: 1.12, r: 27, move: "Shadow Ball",  pool: false, evolvesTo: "gengar" },
+  gengar:     { name: "Gengar",    cost: 1, type: "ghost",    hp: 180, dmg: 7.0, speed: 1.15, r: 30, move: "Shadow Ball",  pool: false },
+  kadabra:    { name: "Kadabra",   cost: 1, type: "psychic",  hp: 115, dmg: 4.8, speed: 1.12, r: 26, move: "Psychic", dodge: 0.18, pool: false, evolvesTo: "alakazam" },
+  alakazam:   { name: "Alakazam",  cost: 1, type: "psychic",  hp: 160, dmg: 7.0, speed: 1.15, r: 29, move: "Psychic", dodge: 0.25, pool: false },
+  scizor:     { name: "Scizor",    cost: 2, type: "steel",    hp: 195, dmg: 6.8, speed: 1.12, r: 30, move: "Bullet Punch", pool: false },
+  weezing:    { name: "Weezing",   cost: 2, type: "poison",   hp: 200, dmg: 5.8, speed: 0.95, r: 31, move: "Toxic Spikes", pool: false },
+  wigglytuff: { name: "Wigglytuff",cost: 2, type: "fairy",    hp: 210, dmg: 5.6, speed: 1.00, r: 31, move: "Sing",         pool: false },
+  lucario:    { name: "Lucario",   cost: 2, type: "fighting", hp: 205, dmg: 7.4, speed: 1.15, r: 30, move: "Aura Sphere",  pool: false },
+  snorlax:    { name: "Snorlax",   cost: 2, type: "normal",   hp: 290, dmg: 6.2, speed: 0.82, r: 37, move: "Body Slam",    pool: false },
+  exeggutor:  { name: "Exeggutor", cost: 2, type: "grass",    hp: 200, dmg: 5.6, speed: 0.95, r: 33, move: "Egg Barrage",  pool: false },
+  steelix:    { name: "Steelix",   cost: 3, type: "steel",    hp: 300, dmg: 6.0, speed: 0.78, r: 39, move: "Stealth Rock", pool: false },
+  wailord:    { name: "Wailord",   cost: 3, type: "water",    hp: 320, dmg: 5.2, speed: 0.80, r: 42, move: "Water Spout",  pool: false },
+  dragonair:  { name: "Dragonair", cost: 3, type: "dragon",   hp: 165, dmg: 5.6, speed: 1.05, r: 29, move: "Dragon Breath", pool: false, evolvesTo: "dragonite" },
+  dragonite:  { name: "Dragonite", cost: 3, type: "dragon",   hp: 265, dmg: 9.0, speed: 1.08, r: 35, move: "Hyper Beam",   pool: false },
+  kirlia:     { name: "Kirlia",    cost: 3, type: "psychic",  hp: 140, dmg: 5.4, speed: 1.05, r: 27, move: "Psychic",      pool: false, evolvesTo: "gardevoir" },
+  gardevoir:  { name: "Gardevoir", cost: 3, type: "psychic",  hp: 235, dmg: 8.6, speed: 1.06, r: 32, move: "Psywave",      pool: false },
+  pupitar:    { name: "Pupitar",   cost: 4, type: "rock",     hp: 190, dmg: 5.4, speed: 0.90, r: 30, move: "Rock Throw",   pool: false, evolvesTo: "tyranitar" },
+  tyranitar:  { name: "Tyranitar", cost: 4, type: "rock",     hp: 310, dmg: 9.6, speed: 0.92, r: 37, move: "Sandstorm",    pool: false },
+  metang:     { name: "Metang",    cost: 4, type: "steel",    hp: 185, dmg: 5.4, speed: 0.90, r: 30, move: "Meteor Mash",  pool: false, evolvesTo: "metagross" },
+  metagross:  { name: "Metagross", cost: 4, type: "steel",    hp: 300, dmg: 9.2, speed: 0.92, r: 37, move: "Meteor Mash",  pool: false },
   /* ------ evolved forms (combine-only) ------ */
   gyarados:   { name: "Gyarados",  cost: 1, type: "water",    hp: 210, dmg: 7.0, speed: 1.05, r: 36, move: "Hydro Pump",   pool: false },
   metapod:    { name: "Metapod",   cost: 1, type: "bug",      hp: 150, dmg: 1.6, speed: 0.85, r: 26, move: "Harden",       pool: false, evolvesTo: "butterfree" },
@@ -203,6 +229,7 @@ const BASIC_ITEMS = Object.keys(ITEMS).filter(k => !ITEMS[k].crafted);
  * (flames w/ flicker cores, droplets w/ shine, spark orbs, wisp trails...)
  * ------------------------------------------------------------------------ */
 const ART_BY_MOVE = {
+  "Dragon Breath": "dragon",
   "Ember": "fire", "Flamethrower": "fire",
   "Water Gun": "water", "Hydro Pump": "water",
   "Thunderbolt": "zap", "Zap Cannon": "zap",
@@ -231,23 +258,23 @@ function projArtFor(moveName, type) {
  * Mods share the item-mod vocabulary + a few sim-specific extras.
  * ------------------------------------------------------------------------ */
 const SYNERGY = {
-  fire:     { label: "Blaze",     desc: "+12% / +25% damage",                     2: { dmgMul: 1.12 },                4: { dmgMul: 1.25 } },
-  water:    { label: "Torrent",   desc: "Regen 1.2 / 2.4 HP/s",                   2: { regen: 1.2 },                  4: { regen: 2.4 } },
-  grass:    { label: "Overgrow",  desc: "+15% / +30% max HP",                     2: { hpMul: 1.15 },                 4: { hpMul: 1.3 } },
-  electric: { label: "Static",    desc: "+8% / +16% speed & attack rate",         2: { speedMul: 1.08, cdMul: 0.92 }, 4: { speedMul: 1.16, cdMul: 0.84 } },
-  psychic:  { label: "Foresight", desc: "8% / 18% dodge",                         2: { dodge: 0.08 },                 4: { dodge: 0.18 } },
-  fighting: { label: "Guts",      desc: "+20% / +45% move charge rate",           2: { chargeMul: 1.2 },              4: { chargeMul: 1.45 } },
-  rock:     { label: "Sturdy",    desc: "Take 10% / 22% less damage",             2: { defMul: 0.9 },                 4: { defMul: 0.78 } },
-  steel:    { label: "Iron Barbs",desc: "Attackers take 1 / 2.5 recoil",          2: { thorns: 1 },                   4: { thorns: 2.5 } },
-  normal:   { label: "Adaptable", desc: "+8% / +16% HP and damage",               2: { hpMul: 1.08, dmgMul: 1.08 },   4: { hpMul: 1.16, dmgMul: 1.16 } },
-  ghost:    { label: "Cursed Body", desc: "Heal 12% / 25% of damage dealt",       2: { lifesteal: 0.12 },             4: { lifesteal: 0.25 } },
-  poison:   { label: "Toxic Touch", desc: "18% / 38% chance to poison on hit",    2: { poisonOnHit: 0.18 },           4: { poisonOnHit: 0.38 } },
-  bug:      { label: "Swarm",     desc: "+6% / +12% speed and damage",            2: { speedMul: 1.06, dmgMul: 1.06 }, 4: { speedMul: 1.14, dmgMul: 1.12 } },
-  dragon:   { label: "Dragon Force", desc: "+20% / +45% move damage",             2: { moveDmgMul: 1.2 },             4: { moveDmgMul: 1.45 } },
-  ice:      { label: "Frostbite", desc: "15% / 32% chance to chill on hit",       2: { slowOnHit: 0.15 },             4: { slowOnHit: 0.32 } },
-  fairy:    { label: "Pixie Aura", desc: "+25% / +55% healing received",          2: { healMul: 1.25 },               4: { healMul: 1.55 } },
-  dark:     { label: "Ambush",    desc: "+25% / +50% damage to weakened foes",    2: { executeMul: 1.25 },            4: { executeMul: 1.5 } },
-  ground:   { label: "Bedrock",   desc: "Take 8% / 16% less, deal 6% / 12% more", 2: { defMul: 0.92, dmgMul: 1.06 },  4: { defMul: 0.84, dmgMul: 1.12 } },
+  fire:     { label: "Blaze",     desc: "+20% / +40% damage",                      2: { dmgMul: 1.2 },                 4: { dmgMul: 1.4 } },
+  water:    { label: "Torrent",   desc: "Regen 2.2 / 4.5 HP/s",                    2: { regen: 2.2 },                  4: { regen: 4.5 } },
+  grass:    { label: "Overgrow",  desc: "+25% / +50% max HP",                      2: { hpMul: 1.25 },                 4: { hpMul: 1.5 } },
+  electric: { label: "Static",    desc: "+12% / +24% speed & attack rate",         2: { speedMul: 1.12, cdMul: 0.88 }, 4: { speedMul: 1.24, cdMul: 0.76 } },
+  psychic:  { label: "Foresight", desc: "12% / 25% dodge",                         2: { dodge: 0.12 },                 4: { dodge: 0.25 } },
+  fighting: { label: "Guts",      desc: "+35% / +70% move charge rate",            2: { chargeMul: 1.35 },             4: { chargeMul: 1.7 } },
+  rock:     { label: "Sturdy",    desc: "Take 15% / 30% less damage",              2: { defMul: 0.85 },                4: { defMul: 0.7 } },
+  steel:    { label: "Iron Barbs",desc: "Attackers take 2 / 4 recoil",             2: { thorns: 2 },                   4: { thorns: 4 } },
+  normal:   { label: "Adaptable", desc: "+14% / +28% HP and damage",               2: { hpMul: 1.14, dmgMul: 1.14 },   4: { hpMul: 1.28, dmgMul: 1.28 } },
+  ghost:    { label: "Cursed Body", desc: "Heal 20% / 38% of damage dealt",        2: { lifesteal: 0.2 },              4: { lifesteal: 0.38 } },
+  poison:   { label: "Toxic Touch", desc: "28% / 55% chance to poison on hit",     2: { poisonOnHit: 0.28 },           4: { poisonOnHit: 0.55 } },
+  bug:      { label: "Swarm",     desc: "+12% / +22% speed and damage",            2: { speedMul: 1.12, dmgMul: 1.12 }, 4: { speedMul: 1.22, dmgMul: 1.22 } },
+  dragon:   { label: "Dragon Force", desc: "+35% / +70% move damage",              2: { moveDmgMul: 1.35 },            4: { moveDmgMul: 1.7 } },
+  ice:      { label: "Frostbite", desc: "25% / 48% chance to chill on hit",        2: { slowOnHit: 0.25 },             4: { slowOnHit: 0.48 } },
+  fairy:    { label: "Pixie Aura", desc: "+40% / +85% healing received",           2: { healMul: 1.4 },                4: { healMul: 1.85 } },
+  dark:     { label: "Ambush",    desc: "+40% / +80% damage to weakened foes",     2: { executeMul: 1.4 },             4: { executeMul: 1.8 } },
+  ground:   { label: "Bedrock",   desc: "Take 12% / 24% less, deal 10% / 20% more", 2: { defMul: 0.88, dmgMul: 1.1 },  4: { defMul: 0.76, dmgMul: 1.2 } },
 };
 const SYN_THRESHOLDS = [2, 4];
 
@@ -344,16 +371,16 @@ const SHOP_ODDS = [
 
 /* Enemy team budgets per round (unit "power points" = cost incl. stars). */
 const ENEMY_PLAN = [
-  { budget: 2,  maxTier: 1, units: 2 },  // r1
-  { budget: 3,  maxTier: 1, units: 2 },  // r2
-  { budget: 5,  maxTier: 2, units: 3 },  // r3
-  { budget: 7,  maxTier: 2, units: 3 },  // r4
-  { budget: 10, maxTier: 3, units: 4 },  // r5
-  { budget: 13, maxTier: 3, units: 4 },  // r6
-  { budget: 17, maxTier: 4, units: 5 },  // r7
-  { budget: 21, maxTier: 4, units: 5 },  // r8
-  { budget: 26, maxTier: 5, units: 6 },  // r9
-  { budget: 32, maxTier: 5, units: 6, boss: true },  // r10 boss
+  { budget: 3,  maxTier: 1, units: 2 },  // r1
+  { budget: 4,  maxTier: 1, units: 2 },  // r2
+  { budget: 7,  maxTier: 2, units: 3 },  // r3
+  { budget: 9,  maxTier: 2, units: 3 },  // r4
+  { budget: 13, maxTier: 3, units: 4 },  // r5
+  { budget: 17, maxTier: 3, units: 4 },  // r6
+  { budget: 22, maxTier: 4, units: 5 },  // r7
+  { budget: 27, maxTier: 4, units: 5 },  // r8
+  { budget: 34, maxTier: 5, units: 6 },  // r9
+  { budget: 42, maxTier: 5, units: 6, boss: true },  // r10 boss
 ];
 
 /* --------------------------------------------------------------------------
