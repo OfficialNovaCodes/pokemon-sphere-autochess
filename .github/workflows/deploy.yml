@@ -21,4 +21,4 @@ jobs:
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
         run: |
-          git push "https://heroku:${HEROKU_API_KEY}@git.heroku.com/pokemon-sphere-autochess.git" HEAD:main
+          git push "https://heroku:${HEROKU_API_KEY}@git.heroku.com/pokespheres.git" HEAD:main
